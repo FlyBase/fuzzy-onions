@@ -83,9 +83,9 @@ def download(ctx, dsid):
     ctx.raw_store.get(dsid)
 
 
-@main.command()
+@main.command('list')
 @click.pass_obj
-def list(ctx):
+def list_datasets(ctx):
     """List the datasets in the local store."""
 
     n = len(ctx.raw_store.datasets)
