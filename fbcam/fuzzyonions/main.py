@@ -39,17 +39,16 @@ This program is released under the terms of the 1-clause BSD licence.
 
 class FzoContext(object):
 
-    def __init__(self, config_file, section):
+    def __init__(self, config_file):
         self._config = ConfigParser()
         self._config.read(config_file)
 
-        self._section = section
         self._store = None
 
     @property
     def raw_store(self):
         if not self._store:
-            d = self._config.get(self._section, 'raw_store')
+            d = self._config.get('store', 'directory')
             self._store = FileStore(d)
         return self._store
 
@@ -60,16 +59,14 @@ class FzoContext(object):
 @click.option('--config', '-c', type=click.Path(exists=True),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
               help="Path to an alternative configuration file.")
-@click.option('--section', '-s', default='default',
-              help="Name of the configuration file section to use.")
 @click.pass_context
-def main(ctx, config, section):
+def main(ctx, config):
     """Helper scripts for the FlyBase scRNAseq project."""
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
                         level=logging.INFO)
 
-    context = FzoContext(config, section)
+    context = FzoContext(config)
     ctx.obj = context
 
 
