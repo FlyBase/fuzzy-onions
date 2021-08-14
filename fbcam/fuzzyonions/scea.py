@@ -50,7 +50,7 @@ class FileStore(object):
                            | DataType.RAW_EXPRESSION_DATA)
 
         if not os.path.exists(directory):
-            os.mkdir(directory)
+            os.makedirs(directory)
 
         self._datasets = None
 
