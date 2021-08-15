@@ -39,7 +39,9 @@ setup(
 
     install_requires=[
         'requests',
-        'click_shell'
+        'click_shell',
+        'pandas',
+        'IPython'
         ],
 
     packages=[

@@ -24,6 +24,7 @@ from configparser import ConfigParser
 
 import click
 from click_shell import shell
+from IPython import embed
 
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.scea import FileStore
@@ -96,6 +97,15 @@ def list_datasets(ctx):
     print(f"{n} dataset(s) available:")
     for d in ctx.raw_store.datasets:
         print(f"{d.id}")
+
+
+@main.command()
+@click.pass_obj
+def ipython(ctx):
+    """Start an interactive Python shell."""
+
+    store = ctx.raw_store
+    embed()
 
 
 if __name__ == '__main__':

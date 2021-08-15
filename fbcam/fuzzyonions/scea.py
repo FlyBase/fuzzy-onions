@@ -27,6 +27,7 @@ import os
 from zipfile import ZipFile
 
 import requests
+import pandas
 
 
 class DataType(IntFlag):
@@ -104,6 +105,7 @@ class Dataset(object):
         self._directory = directory
         self._id = os.path.basename(directory)
         self._files = os.listdir(directory)
+        self._expdesign = None
 
     @property
     def id(self):
@@ -114,6 +116,16 @@ class Dataset(object):
         """Gets a list of locally-available data for this dataset."""
 
         return [d for d, f in Dataset.FILES.items() if f in self._files]
+
+    @property
+    def experiment_design(self):
+        """Gets the "experiment design" table of the dataset."""
+
+        if self._expdesign is None:
+            f = Dataset.FILES[DataType.EXPERIMENT_DESIGN].format(self._id)
+            self._expdesign = pandas.read_csv(os.path.join(self._directory, f),
+                                              sep='\t')
+        return self._expdesign
 
 
 class Downloader(object):
