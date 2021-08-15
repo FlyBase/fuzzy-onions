@@ -115,7 +115,8 @@ class Dataset(object):
     def available_data(self):
         """Gets a list of locally-available data for this dataset."""
 
-        return [d for d, f in Dataset.FILES.items() if f in self._files]
+        return [d for d, f in Dataset.FILES.items()
+                if f.format(self._id) in self._files]
 
     @property
     def experiment_design(self):
