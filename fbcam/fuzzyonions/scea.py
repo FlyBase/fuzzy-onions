@@ -28,6 +28,8 @@ from zipfile import ZipFile
 
 import requests
 import pandas
+from pandas.core.arrays.sparse.accessor import SparseFrameAccessor
+from scipy.io import mmread
 
 
 class DataType(IntFlag):
@@ -106,6 +108,8 @@ class Dataset(object):
         self._id = os.path.basename(directory)
         self._files = os.listdir(directory)
         self._expdesign = None
+        self._raw_exp_matrix = None
+        self._norm_exp_matrix = None
 
     @property
     def id(self):
@@ -127,6 +131,44 @@ class Dataset(object):
             self._expdesign = pandas.read_csv(os.path.join(self._directory, f),
                                               sep='\t')
         return self._expdesign
+
+    @property
+    def raw_expression(self):
+        """Gets the raw expression data matrix."""
+
+        if self._raw_exp_matrix is None:
+            self._raw_exp_matrix = self._read_expression_matrix(True)
+
+        return self._raw_exp_matrix
+
+    @property
+    def normalised_expression(self):
+        """Gets the normalised expression data matrix."""
+
+        if self._norm_exp_matrix is None:
+            self._norm_exp_matrix = self._read_expression_matrix(False)
+
+        return self._norm_exp_matrix
+
+    def _read_expression_matrix(self, raw=True):
+        dt = DataType.RAW_EXPRESSION_DATA
+        if not raw:
+            dt = DataType.NORMALISED_EXPRESSION_DATA
+
+        basename = Dataset.FILES[dt].format(self._id)
+        fullname = os.path.join(self._directory, basename)
+
+        cols = pandas.read_table(f'{fullname}_cols', header=None,
+                                 names=['cells'])
+        rows = pandas.read_table(f'{fullname}_rows', header=None,
+                                 names=['genes'], usecols=[0])
+        raw_matrix = mmread(fullname)
+
+        matrix = SparseFrameAccessor.from_spmatrix(raw_matrix,
+                                                   columns=cols['cells'],
+                                                   index=rows['genes'])
+
+        return matrix
 
 
 class Downloader(object):
