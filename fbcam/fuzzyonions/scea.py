@@ -129,7 +129,7 @@ class Dataset(object):
         if self._expdesign is None:
             f = Dataset.FILES[DataType.EXPERIMENT_DESIGN].format(self._id)
             self._expdesign = pandas.read_csv(os.path.join(self._directory, f),
-                                              sep='\t')
+                                              sep='\t', low_memory=False)
         return self._expdesign
 
     @property
