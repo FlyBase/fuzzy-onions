@@ -128,8 +128,10 @@ def ipython(ctx):
               help="Produce a text output instead of JSON.")
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
+@click.option('--cell-types', type=click.File('r'), default=None,
+              help="Path to a TSV file containing cell type corrections.")
 @click.pass_obj
-def extract(ctx, specfile, with_reads, text, output):
+def extract(ctx, specfile, with_reads, text, output, cell_types):
     """Extract curation data from a dataset.
     
     This command expects a JSON-formatted file describing how to extract
@@ -160,6 +162,9 @@ def extract(ctx, specfile, with_reads, text, output):
     cell_type_column = spec['Cell types column']
     excluded_cell_types = spec.get('Excluded cell types', [])
     columns = spec.get('Conditions', None)
+
+    if cell_types:
+        ds.fix_data(cell_type_column, cell_types)
 
     for sample in spec['Samples']:
 

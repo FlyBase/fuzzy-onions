@@ -150,6 +150,12 @@ class Dataset(object):
 
         return self._norm_exp_matrix
 
+    def fix_data(self, column, correction_file):
+        corrections = pandas.read_csv(correction_file, sep='\t')
+        for original, modified in corrections.iloc[:, [0, 1]].values:
+            self.experiment_design.loc[:, column].replace(original, modified,
+                                                          inplace=True)
+
     def _read_expression_matrix(self, raw=True):
         dt = DataType.RAW_EXPRESSION_DATA
         if not raw:
