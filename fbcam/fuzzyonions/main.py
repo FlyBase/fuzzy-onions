@@ -20,6 +20,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
+import json
 from configparser import ConfigParser
 
 import click
@@ -106,6 +107,86 @@ def ipython(ctx):
 
     store = ctx.raw_store
     embed()
+
+
+@main.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--with-reads/--without-reads', default=True,
+              help="Extract number of reads per biosample.")
+@click.option('--text', '-t', is_flag=True, default=False,
+              help="Produce a text output instead of JSON.")
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def extract(ctx, specfile, with_reads, text, output):
+    """Extract curation data from a dataset.
+    
+    This command expects a JSON-formatted file describing how to extract
+    from a dataset the bits of data that are required for FlyBase
+    curation. It produces a similar JSON file enriched with the
+    extracted values.
+    
+    \b
+    Sample JSON input file:
+    {
+        "Symbol": <symbol to use in FlyBase>
+        "Dataset ID": <SCEA dataset ID>,
+        "Cell types column": <name of the column for cell types>,
+        "Excluded cell types": <list of cell types to ignore>,
+        "Conditions": <list of columns used to assign cells to samples>,
+        "Samples": [
+            {
+                "Symbol": <suffix to add to the dataset-level symbol>,
+                "Selectors": <list of values used to select cells>
+            },
+            <repeat for as many samples as needed>
+        ]
+    }
+    """
+
+    spec = json.load(specfile)
+    ds = ctx.raw_store.get(spec['Dataset ID'])
+    cell_type_column = spec['Cell types column']
+    excluded_cell_types = spec.get('Excluded cell types', [])
+    columns = spec.get('Conditions', None)
+
+    for sample in spec['Samples']:
+
+        # Get the subset of cells for this sample
+        subset = ds.experiment_design
+        if columns:
+            selectors = sample['Selectors']
+            for i in range(len(columns)):
+                subset = subset.loc[subset[columns[i]] == selectors[i]]
+
+        # The number of cells is simply the number of rows
+        sample['Cells'] = len(subset)
+
+        # Same, but per cell type
+        sample['Cell types'] = {}
+        for cell_type in subset[cell_type_column].unique():
+            if cell_type not in excluded_cell_types:
+                n = len(subset.loc[subset[cell_type_column] == cell_type])
+                if n > 0:
+                    sample['Cell types'][cell_type] = n
+
+        # Get the number of reads from the raw expression matrix
+        if with_reads:
+            mm = ds.raw_expression
+            nreads = mm.loc[:, subset['Assay']].sum().sum()
+            sample['Reads'] = int(nreads)
+
+    if text:
+        for sample in spec['Samples']:
+            symbol = spec['Symbol'] + sample['Symbol']
+            print(f"Sample {symbol}")
+            print(f"  Cells: {sample['Cells']}")
+            if with_reads:
+                print(f"  Reads: {sample['Reads']}")
+            for cell_type, cells in sample['Cell types'].items():
+                print(f"    {cell_type}: {cells}")
+    else:
+        json.dump(spec, output, indent=2)
 
 
 if __name__ == '__main__':
