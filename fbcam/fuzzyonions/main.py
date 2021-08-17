@@ -29,6 +29,7 @@ from IPython import embed
 
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.scea import FileStore
+from fbcam.fuzzyonions.explorer import explorer
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -46,6 +47,7 @@ class FzoContext(object):
         self._config.read(config_file)
 
         self._store = None
+        self._dataset = None
 
     @property
     def raw_store(self):
@@ -53,6 +55,15 @@ class FzoContext(object):
             d = self._config.get('store', 'directory')
             self._store = FileStore(d)
         return self._store
+
+    @property
+    def dataset(self):
+        if not self._dataset:
+            self._dataset = self.raw_store.datasets[0]
+        return self._dataset
+
+    def load_dataset(self, dsid):
+        self._dataset = self.raw_store.get(dsid)
 
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
@@ -188,6 +199,8 @@ def extract(ctx, specfile, with_reads, text, output):
     else:
         json.dump(spec, output, indent=2)
 
+
+main.add_command(explorer)
 
 if __name__ == '__main__':
     main()

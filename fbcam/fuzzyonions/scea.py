@@ -63,7 +63,7 @@ class FileStore(object):
 
         if not self._datasets:
             self._refresh()
-        return self._datasets.values()
+        return [d for d in self._datasets.values()]
 
     def get(self, dsid, download=True):
         """Gets a single dataset.
