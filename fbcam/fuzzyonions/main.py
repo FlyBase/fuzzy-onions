@@ -26,6 +26,8 @@ from configparser import ConfigParser
 import click
 from click_shell import shell
 from IPython import embed
+import numpy
+import pandas
 
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.scea import FileStore
@@ -203,6 +205,77 @@ def extract(ctx, specfile, with_reads, text, output, cell_types):
                 print(f"    {cell_type}: {cells}")
     else:
         json.dump(spec, output, indent=2)
+
+
+@main.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def sumexpr(ctx, specfile, output):
+    """Summarize expression data from a dataset.
+    
+    This command expects a JSON file similar to the one used by the
+    'extract' command. It computes a per-cell type summarised gene
+    expression matrix from a dataset.
+    """
+
+    spec = json.load(specfile)
+    ds = ctx.raw_store.get(spec['Dataset ID'])
+    cell_type_column = spec['Cell types column']
+    columns = spec.get('Conditions', None)
+
+    # Get the normalized expression data in exploitable form
+    # HACK: The matrix read by SciPy's mmread function is filled with
+    # zeros. To replace them with NaN, we need to transform the spare
+    # matrix into a dense matrix. This is probably not very efficient,
+    # but it seems good enough even with some of the largest datasets
+    # currently available on SCEA.
+    matrix = ds.normalised_expression.transpose()
+    matrix = matrix.sparse.to_dense()
+    matrix.replace(0.0, numpy.nan, inplace=True)
+
+    # Join the expression matrix with the experiment design table to
+    # associate cell IDs with cell types
+    expd = ds.experiment_design.set_index('Assay')
+    matrix = matrix.join(expd[cell_type_column], on='cells')
+
+    result = None
+    for sample in spec['Samples']:
+
+        # Get the subset of cells for this sample
+        subset = ds.experiment_design
+        if columns:
+            selectors = sample['Selectors']
+            for i in range(len(columns)):
+                subset = subset.loc[subset[columns[i]] == selectors[i]]
+
+        # Subset of the expression matrix for this sample
+        sm = matrix.loc[subset['Assay']]
+
+        # Loop through cell types in this sample
+        cell_types = subset.loc[:, cell_type_column].dropna().unique()
+        for cell_type in cell_types:
+            # Subset of the expression matrix for this cell type
+            smc = sm.loc[sm[cell_type_column] == cell_type,:].set_index(cell_type_column)
+
+            # Mean expression
+            means = smc.mean()
+
+            # "Spread" of expression
+            spreads = smc.count() / len(smc)
+
+            # Build the result dataframe
+            d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
+            d['celltype'] = cell_type
+            d['sample'] = spec['Symbol'] + sample['Symbol']
+            if result is not None:
+                result = result.append(d)
+            else:
+                result = d
+
+    result.index.rename('genes', inplace=True)
+    result.dropna().to_csv(output)
 
 
 main.add_command(explorer)
