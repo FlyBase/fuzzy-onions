@@ -47,8 +47,8 @@ def open_dataset(ctx, dsid):
 def columns(ctx):
     """List the columns from the experiment design."""
 
-    for col in ctx.dataset.experiment_design.columns:
-        print(col)
+    for i, col in enumerate(ctx.dataset.experiment_design.columns):
+        print(f"{i:2d}: {col}")
 
 
 @explorer.command()
@@ -60,12 +60,14 @@ def values(ctx, column, count_cells):
     """Print unique values in a column."""
 
     expd = ctx.subset
-    if column not in expd.columns:
-        print(f"No column named '{column}'")
+    col = _get_column(ctx, column)
+    if not col:
+        print(f"Column '{column}' no found")
+        return
 
-    for value in expd[column].unique():
+    for value in expd[col].unique():
         if count_cells:
-            count = len(expd.loc[expd[column] == value])
+            count = len(expd.loc[expd[col] == value])
             print(f"{value}: {count} cells")
         else:
             print(value)
@@ -78,8 +80,13 @@ def values(ctx, column, count_cells):
 def select(ctx, column, value):
     """Select a subset of the experiment design."""
 
+    col = _get_column(ctx, column)
+    if not col:
+        print(f"Column '{column}' not found")
+        return
+
     expd = ctx.subset
-    ctx.subset = expd.loc[expd[column] == value]
+    ctx.subset = expd.loc[expd[col] == value]
     print(f"{value}: {len(ctx.subset)} cells")
 
 
@@ -89,3 +96,14 @@ def clear(ctx):
     """Clear any subset selection."""
 
     ctx.subset = None
+
+
+def _get_column(ctx, spec):
+    if spec in ctx.dataset.experiment_design.columns:
+        return spec
+    elif spec.isnumeric():
+        spec = int(spec)
+        if spec in range(len(ctx.dataset.experiment_design.columns)):
+            return ctx.dataset.experiment_design.columns[spec]
+
+    return None
