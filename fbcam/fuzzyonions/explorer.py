@@ -53,8 +53,10 @@ def columns(ctx):
 
 @explorer.command()
 @click.argument('column')
+@click.option('--count-cells', '-c', is_flag=True, default=False,
+              help="Print the number of cells for each value.")
 @click.pass_obj
-def values(ctx, column):
+def values(ctx, column, count_cells):
     """Print unique values in a column."""
 
     expd = ctx.dataset.experiment_design
@@ -62,4 +64,8 @@ def values(ctx, column):
         print(f"No column named '{column}'")
 
     for value in expd[column].unique():
-        print(value)
+        if count_cells:
+            count = len(expd.loc[expd[column] == value])
+            print(f"{value}: {count} cells")
+        else:
+            print(value)
