@@ -59,7 +59,7 @@ def columns(ctx):
 def values(ctx, column, count_cells):
     """Print unique values in a column."""
 
-    expd = ctx.dataset.experiment_design
+    expd = ctx.subset
     if column not in expd.columns:
         print(f"No column named '{column}'")
 
@@ -69,3 +69,23 @@ def values(ctx, column, count_cells):
             print(f"{value}: {count} cells")
         else:
             print(value)
+
+
+@explorer.command()
+@click.argument('column')
+@click.argument('value')
+@click.pass_obj
+def select(ctx, column, value):
+    """Select a subset of the experiment design."""
+
+    expd = ctx.subset
+    ctx.subset = expd.loc[expd[column] == value]
+    print(f"{value}: {len(ctx.subset)} cells")
+
+
+@explorer.command()
+@click.pass_obj
+def clear(ctx):
+    """Clear any subset selection."""
+
+    ctx.subset = None
