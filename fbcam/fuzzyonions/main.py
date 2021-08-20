@@ -315,7 +315,6 @@ def proforma(ctx, spec, output):
     fills = {
         'LC1a': spec['Symbol'],
         'LC2b': 'transcriptome ; FBcv:0003034',
-        'LC6d': 'Y',
         'LC99a': spec['Dataset ID'],
         'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets'
         }
@@ -340,7 +339,7 @@ def proforma(ctx, spec, output):
         fills = {
             'LC1a': symbol + '_seq',
             'LC2b': 'single-cell RNA-Seq ; FBcv:0009000',
-            'LC3a': spec['Symbol'],
+            'LC3': spec['Symbol'],
             'LC14a': symbol,
             'LC6e': sample['Reads'],
             'LC6f': 'Number of reads'
@@ -351,7 +350,7 @@ def proforma(ctx, spec, output):
         fills = {
             'LC1a': symbol + '_seq_clustering',
             'LC2b': 'cell clustering analysis ; FBcv:0009002',
-            'LC3a': spec['Symbol'],
+            'LC3': spec['Symbol'],
             'LC14b': symbol + '_seq',
             'LC6d': 'Y'
             }
