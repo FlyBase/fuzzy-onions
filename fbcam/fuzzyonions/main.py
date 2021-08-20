@@ -322,12 +322,16 @@ def proforma(ctx, spec, output):
 
     for sample in spec['Samples']:
         symbol = spec['Symbol'] + sample['Symbol']
+        stage = sample['Stage']
+        title = sample['Title']
 
         generator = builder.get_generator(template='dataset/biosample')
         fills = {
             'LC1a': symbol,
+            'LC6g': title,
             'LC2b': 'isolated cells ; FBcv:0003047',
             'LC3': spec['Symbol'],
+            'LC4g': f'<e><t>{stage}<a><s><note>',
             'LC6e': sample['Cells'],
             'LC6f': 'Number of cells in sample',
             'LC11m': 'multi-individual sample ; FBcv:0003141\n' +
@@ -338,6 +342,7 @@ def proforma(ctx, spec, output):
         generator = builder.get_generator(template='dataset/assay')
         fills = {
             'LC1a': symbol + '_seq',
+            'LC6g': f'Single-cell RNA-seq of {title}',
             'LC2b': 'single-cell RNA-Seq ; FBcv:0009000',
             'LC3': spec['Symbol'],
             'LC14a': symbol,
@@ -349,6 +354,7 @@ def proforma(ctx, spec, output):
         generator = builder.get_generator(template='dataset/result')
         fills = {
             'LC1a': symbol + '_seq_clustering',
+            'LC6g': f'Clustering analysis of {title}',
             'LC2b': 'cell clustering analysis ; FBcv:0009002',
             'LC3': spec['Symbol'],
             'LC14b': symbol + '_seq',
@@ -361,9 +367,10 @@ def proforma(ctx, spec, output):
             generator = builder.get_generator(template='dataset/subresult')
             fills = {
                 'LC1a': f'{symbol}_cluster_{ct_symbol}s',
+                'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
                 'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
                 'LC3': symbol + '_seq_clustering',
-                'LC4g': f'<e><t><a>{cell_type}<s><note>',
+                'LC4g': f'<e><t>{stage}<a>{cell_type}<s><note>',
                 'LC6e': n,
                 'LC6f': 'Number of cells in cluster'
                 }
