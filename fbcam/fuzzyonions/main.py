@@ -80,6 +80,7 @@ class FzoContext(object):
     def load_dataset(self, dsid):
         self._dataset = self.raw_store.get(dsid)
 
+    @property
     def proformae_folder(self):
         return self._config.get('proformae', 'directory')
 
