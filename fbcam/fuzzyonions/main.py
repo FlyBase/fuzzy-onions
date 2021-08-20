@@ -237,6 +237,7 @@ def sumexpr(ctx, specfile, output):
     spec = json.load(specfile)
     ds = ctx.raw_store.get(spec['Dataset ID'])
     cell_type_column = spec['Cell types column']
+    excluded_cell_types = spec.get('Excluded cell types', [])
     columns = spec.get('Conditions', None)
 
     if 'Corrections' in spec:
@@ -272,7 +273,7 @@ def sumexpr(ctx, specfile, output):
 
         # Loop through cell types in this sample
         cell_types = subset.loc[:, cell_type_column].dropna().unique()
-        for cell_type in cell_types:
+        for cell_type in [c for c in cell_types if c not in excluded_cell_types]:
             # Subset of the expression matrix for this cell type
             smc = sm.loc[sm[cell_type_column] == cell_type,:].set_index(cell_type_column)
 
