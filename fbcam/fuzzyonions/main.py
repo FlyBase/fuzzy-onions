@@ -32,6 +32,7 @@ import pandas
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.scea import FileStore
 from fbcam.fuzzyonions.explorer import explorer
+from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -78,6 +79,9 @@ class FzoContext(object):
 
     def load_dataset(self, dsid):
         self._dataset = self.raw_store.get(dsid)
+    
+    def proformae_folder(self):
+        return self._config.get('proformae', 'directory')
 
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
@@ -288,6 +292,82 @@ def sumexpr(ctx, specfile, output):
 
     result.index.rename('genes', inplace=True)
     result.dropna().to_csv(output)
+
+
+@main.command()
+@click.argument('spec', type=click.File('r'))
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def proforma(ctx, spec, output):
+    """Generate a proforma for a dataset."""
+
+    spec = json.load(spec)
+    builder = ProformaGeneratorBuilder(ctx.proformae_folder, output)
+
+    generator = builder.get_generator(template='pub_mini')
+    generator.fill_template()
+
+    generator = builder.get_generator(template='dataset/project')
+    fills = {
+        'LC1a': spec['Symbol'],
+        'LC2b': 'transcriptome ; FBcv:0003034',
+        'LC6d': 'Y',
+        'LC99a': spec['Dataset ID'],
+        'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets'
+        }
+    generator.fill_template(fills)
+
+    for sample in spec['Samples']:
+        symbol = spec['Symbol'] + sample['Symbol']
+
+        generator = builder.get_generator(template='dataset/biosample')
+        fills = {
+            'LC1a': symbol,
+            'LC2b': 'isolated cells ; FBcv:0003047',
+            'LC3': spec['Symbol'],
+            'LC6e': sample['Cells'],
+            'LC6f': 'Number of cells in sample',
+            'LC11m': 'multi-individual sample ; FBcv:0003141\n' +
+                     'cell isolation ; FBcv:0003170'
+            }
+        generator.fill_template(fills)
+
+        generator = builder.get_generator(template='dataset/assay')
+        fills = {
+            'LC1a': symbol + '_seq',
+            'LC2b': 'single-cell RNA-Seq ; FBcv:0009000',
+            'LC3a': spec['Symbol'],
+            'LC14a': symbol,
+            'LC6e': sample['Reads'],
+            'LC6f': 'Number of reads'
+            }
+        generator.fill_template(fills)
+
+        generator = builder.get_generator(template='dataset/result')
+        fills = {
+            'LC1a': symbol + '_seq_clustering',
+            'LC2b': 'cell clustering analysis ; FBcv:0009002',
+            'LC3a': spec['Symbol'],
+            'LC14b': symbol + '_seq',
+            'LC6d': 'Y'
+            }
+        generator.fill_template(fills)
+
+        for cell_type, n in sample['Cell types'].items():
+            ct_symbol = cell_type.replace(' ', '_')
+            generator = builder.get_generator(template='dataset/subresult')
+            fills = {
+                'LC1a': f'{symbol}_cluster_{ct_symbol}s',
+                'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
+                'LC3': symbol + '_seq_clustering',
+                'LC4g': f'<e><t><a>{cell_type}<s><note>',
+                'LC6e': n,
+                'LC6f': 'Number of cells in cluster'
+                }
+            generator.fill_template(fills)
+
+    generator.write_terminator()
 
 
 main.add_command(explorer)
