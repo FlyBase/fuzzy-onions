@@ -74,20 +74,31 @@ def values(ctx, column, count_cells):
 
 
 @explorer.command()
-@click.argument('column')
-@click.argument('value')
+@click.argument('selectors', nargs=-1)
+@click.option('--clear', '-c', is_flag=True, default=False,
+              help="Reset previous selection.")
 @click.pass_obj
-def select(ctx, column, value):
+def select(ctx, selectors, clear):
     """Select a subset of the experiment design."""
 
-    col = _get_column(ctx, column)
-    if not col:
-        print(f"Column '{column}' not found")
-        return
+    if clear:
+        ctx.subset = None
 
     expd = ctx.subset
+    values = []
+
+    for selector in selectors:
+        column, value = selector.split(':')
+        col = _get_column(ctx, column)
+        if not col:
+            print(f"Column '{column}' not found")
+            return
+
+        expd = expd.loc[expd[col] == value]
+        values.append(value)
+
     ctx.subset = expd.loc[expd[col] == value]
-    print(f"{value}: {len(ctx.subset)} cells")
+    print(f"{' > '.join(values)}: {len(ctx.subset)} cells")
 
 
 @explorer.command()
