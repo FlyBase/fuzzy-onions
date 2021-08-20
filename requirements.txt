@@ -1,0 +1,4 @@
+requests
+click_shell >=2.1
+pandas
+IPython
