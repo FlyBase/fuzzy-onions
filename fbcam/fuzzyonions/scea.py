@@ -167,6 +167,8 @@ class Dataset(object):
                 dest = src
 
             for old, new, _ in correction['Values']:
+                if len(new) == 0:
+                    new = pandas.NA
                 expd.loc[expd[src] == old, dest] = new
 
     def _read_expression_matrix(self, raw=True):
