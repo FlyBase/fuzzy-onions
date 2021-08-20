@@ -294,7 +294,7 @@ def sumexpr(ctx, specfile, output):
                 result = d
 
     result.index.rename('genes', inplace=True)
-    result.dropna().to_csv(output)
+    result.dropna().to_csv(output, sep='\t')
 
 
 @main.command()
