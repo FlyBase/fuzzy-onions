@@ -79,13 +79,13 @@ class FzoContext(object):
 
     def load_dataset(self, dsid):
         self._dataset = self.raw_store.get(dsid)
-    
+
     def proformae_folder(self):
         return self._config.get('proformae', 'directory')
 
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
-       prompt="fzo >")
+       prompt="fzo> ")
 @click.version_option(version=__version__, message=prog_notice)
 @click.option('--config', '-c', type=click.Path(exists=True),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
