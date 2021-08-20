@@ -146,10 +146,8 @@ def ipython(ctx):
               help="Produce a text output instead of JSON.")
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
-@click.option('--cell-types', type=click.File('r'), default=None,
-              help="Path to a TSV file containing cell type corrections.")
 @click.pass_obj
-def extract(ctx, specfile, with_reads, text, output, cell_types):
+def extract(ctx, specfile, with_reads, text, output):
     """Extract curation data from a dataset.
     
     This command expects a JSON-formatted file describing how to extract
@@ -181,8 +179,8 @@ def extract(ctx, specfile, with_reads, text, output, cell_types):
     excluded_cell_types = spec.get('Excluded cell types', [])
     columns = spec.get('Conditions', None)
 
-    if cell_types:
-        ds.fix_data(cell_type_column, cell_types)
+    if 'Corrections' in spec:
+        ds.apply_corrections(spec['Corrections'])
 
     for sample in spec['Samples']:
 
@@ -240,6 +238,9 @@ def sumexpr(ctx, specfile, output):
     ds = ctx.raw_store.get(spec['Dataset ID'])
     cell_type_column = spec['Cell types column']
     columns = spec.get('Conditions', None)
+
+    if 'Corrections' in spec:
+        ds.apply_corrections(spec['Corrections'])
 
     # Get the normalized expression data in exploitable form
     # HACK: The matrix read by SciPy's mmread function is filled with
@@ -368,6 +369,32 @@ def proforma(ctx, spec, output):
             generator.fill_template(fills)
 
     generator.write_terminator()
+
+
+@main.command()
+@click.argument('spec', type=click.File('r'))
+@click.pass_obj
+def fixscea(ctx, spec):
+    """Generate correction files for the SCEA."""
+
+    spec = json.load(spec)
+    if not 'Corrections' in spec:
+        print("No corrections found in spec file")
+        return
+
+    ds = ctx.raw_store.get(spec['Dataset ID'])
+    ds.apply_corrections(spec['Corrections'], only_new=True)
+    ds.experiment_design.to_csv('experiment-design.with-fbids.tsv', sep='\t')
+
+    cell_type_column = spec['Cell types column']
+    for correction in spec['Corrections']:
+        if correction['Source'] != cell_type_column:
+            continue
+
+        with open('celltypes-fbterms.tsv', 'w') as f:
+            f.write('Original term\tProposed new term\tComment\n')
+            for old, new, comment in correction['Values']:
+                f.write(f'{old}\t{new}\t{comment}\n')
 
 
 main.add_command(explorer)

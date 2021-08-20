@@ -150,11 +150,24 @@ class Dataset(object):
 
         return self._norm_exp_matrix
 
-    def fix_data(self, column, correction_file):
-        corrections = pandas.read_csv(correction_file, sep='\t')
-        for original, modified in corrections.iloc[:, [0, 1]].values:
-            self.experiment_design.loc[:, column].replace(original, modified,
-                                                          inplace=True)
+    def apply_corrections(self, corrections, only_new=False):
+        """Update the experiment design table with custom corrections."""
+
+        expd = self.experiment_design
+        for correction in corrections:
+            src = correction['Source']
+            if 'Destination' in correction:
+                dest = correction['Destination']
+                # We are adding a new column
+                expd[dest] = pandas.Series(dtype='string')
+            else:
+                # We modify an existing column
+                if only_new:
+                    continue
+                dest = src
+
+            for old, new, _ in correction['Values']:
+                expd.loc[expd[src] == old, dest] = new
 
     def _read_expression_matrix(self, raw=True):
         dt = DataType.RAW_EXPRESSION_DATA
