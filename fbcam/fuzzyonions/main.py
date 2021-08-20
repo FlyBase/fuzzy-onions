@@ -209,12 +209,12 @@ def extract(ctx, specfile, with_reads, text, output, cell_types):
     if text:
         for sample in spec['Samples']:
             symbol = spec['Symbol'] + sample['Symbol']
-            print(f"Sample {symbol}")
-            print(f"  Cells: {sample['Cells']}")
+            output.write(f"Sample {symbol}\n")
+            output.write(f"  Cells: {sample['Cells']}\n")
             if with_reads:
-                print(f"  Reads: {sample['Reads']}")
+                output.write(f"  Reads: {sample['Reads']}\n")
             for cell_type, cells in sample['Cell types'].items():
-                print(f"    {cell_type}: {cells}")
+                output.write(f"    {cell_type}: {cells}\n")
     else:
         json.dump(spec, output, indent=2)
 
