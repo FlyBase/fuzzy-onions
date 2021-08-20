@@ -50,6 +50,7 @@ class FzoContext(object):
 
         self._store = None
         self._dataset = None
+        self._subset = None
 
     @property
     def raw_store(self):
@@ -60,9 +61,20 @@ class FzoContext(object):
 
     @property
     def dataset(self):
-        if not self._dataset:
+        if self._dataset is None:
             self._dataset = self.raw_store.datasets[0]
         return self._dataset
+
+    @property
+    def subset(self):
+        if self._subset is None:
+            return self.dataset.experiment_design
+        else:
+            return self._subset
+
+    @subset.setter
+    def subset(self, subset):
+        self._subset = subset
 
     def load_dataset(self, dsid):
         self._dataset = self.raw_store.get(dsid)
