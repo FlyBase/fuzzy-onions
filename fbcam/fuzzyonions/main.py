@@ -176,7 +176,7 @@ def extract(ctx, specfile, with_reads, text, output):
 
     spec = json.load(specfile)
     ds = ctx.raw_store.get(spec['Dataset ID'])
-    cell_type_column = spec['Cell types column']
+    cell_type_column = spec.get('Cell types column', None)
     excluded_cell_types = spec.get('Excluded cell types', [])
     columns = spec.get('Conditions', None)
 
@@ -197,11 +197,12 @@ def extract(ctx, specfile, with_reads, text, output):
 
         # Same, but per cell type
         sample['Cell types'] = {}
-        for cell_type in subset[cell_type_column].unique():
-            if cell_type not in excluded_cell_types:
-                n = len(subset.loc[subset[cell_type_column] == cell_type])
-                if n > 0:
-                    sample['Cell types'][cell_type] = n
+        if cell_type_column is not None:
+            for cell_type in subset[cell_type_column].unique():
+                if cell_type not in excluded_cell_types:
+                    n = len(subset.loc[subset[cell_type_column] == cell_type])
+                    if n > 0:
+                        sample['Cell types'][cell_type] = n
 
         # Get the number of reads from the raw expression matrix
         if with_reads:
