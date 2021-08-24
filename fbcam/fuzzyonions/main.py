@@ -183,10 +183,6 @@ def extract(ctx, specfile, with_reads, text, output):
     if 'Corrections' in spec:
         ds.apply_corrections(spec['Corrections'])
 
-    # print(f"Number of cells: {len(ds.experiment_design)}")
-    # expd = ds.get_experiment_design_subset(ds.raw_expression)
-    # print(f"Number of cells after correction: {len(expd)}")
-
     for sample in spec['Samples']:
 
         # Get the subset of cells for this sample
