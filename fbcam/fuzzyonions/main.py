@@ -183,6 +183,10 @@ def extract(ctx, specfile, with_reads, text, output):
     if 'Corrections' in spec:
         ds.apply_corrections(spec['Corrections'])
 
+    # print(f"Number of cells: {len(ds.experiment_design)}")
+    # expd = ds.get_experiment_design_subset(ds.raw_expression)
+    # print(f"Number of cells after correction: {len(expd)}")
+
     for sample in spec['Samples']:
 
         # Get the subset of cells for this sample
@@ -193,7 +197,8 @@ def extract(ctx, specfile, with_reads, text, output):
                 subset = subset.loc[subset[columns[i]] == selectors[i]]
 
         # The number of cells is simply the number of rows
-        sample['Cells'] = len(subset)
+        n_cells = len(subset)
+        sample['Cells'] = n_cells
 
         # Same, but per cell type
         sample['Cell types'] = {}
@@ -207,7 +212,25 @@ def extract(ctx, specfile, with_reads, text, output):
         # Get the number of reads from the raw expression matrix
         if with_reads:
             mm = ds.raw_expression
-            nreads = mm.loc[:, subset['Assay']].sum().sum()
+
+            # FIXME
+            # In some datasets (at least E-GEOD-100058... for now), there
+            # is a discrepancy between the experiment design table and the
+            # expression matrix, where not all cell identifiers from the
+            # experiment design table have a corresponding column in the
+            # expression matrix. We need to remove those offending cell IDs
+            # before we look up the number of reads. Such a discrepancy
+            # MAY be an indicator that there's something fishy with the
+            # dataset, so if we detect it, we print a warning giving the
+            # extent of the discrepancy (how many cells are missing).
+            s2 = subset.loc[subset['Assay'].isin(mm.columns)]['Assay']
+            diff = n_cells - len(s2)
+            if diff > 0:
+                logging.warn(f"{sample['Symbol']}: {diff}/{n_cells} cells "
+                              "were removed because they are absent from "
+                              "the expression matrix.")
+
+            nreads = mm.loc[:, s2].sum().sum()
             sample['Reads'] = int(nreads)
 
     if text:
