@@ -79,6 +79,8 @@ TEMPLATES = {
             ('LC4f', None),
             ('LC4g', None),
             ('LC4i', None),
+            ('LC12a', None),
+            ('LC12b', None),
             ('LC6d', 'N'),
             ('LC6e', None),
             ('LC6f', None),
