@@ -414,7 +414,10 @@ def fixscea(ctx, spec):
     ds.apply_corrections(spec['Corrections'], only_new=True)
     ds.experiment_design.to_csv('experiment-design.with-fbids.tsv', sep='\t')
 
-    cell_type_column = spec['Cell types column']
+    cell_type_column = spec.get('Cell types column', None)
+    if cell_type_column is None:
+        return
+
     for correction in spec['Corrections']:
         if correction['Source'] != cell_type_column:
             continue
