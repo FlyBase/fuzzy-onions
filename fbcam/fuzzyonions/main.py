@@ -411,15 +411,20 @@ def fixscea(ctx, spec):
         return
 
     ds = ctx.raw_store.get(spec['Dataset ID'])
-    ds.apply_corrections(spec['Corrections'], only_new=True)
+    ds.apply_corrections(spec['Corrections'], only_new=True, target='scea')
     ds.experiment_design.to_csv('experiment-design.with-fbids.tsv', sep='\t')
 
     cell_type_column = spec.get('Cell types column', None)
     if cell_type_column is None:
-        return
+        cell_type_column = spec.get('Source cell types column', None)
+        if cell_type_column is None:
+            return
 
     for correction in spec['Corrections']:
         if correction['Source'] != cell_type_column:
+            continue
+
+        if 'Target' in correction and correction['Target'] != 'scea':
             continue
 
         with open('celltypes-fbterms.tsv', 'w') as f:

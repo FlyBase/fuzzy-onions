@@ -150,11 +150,14 @@ class Dataset(object):
 
         return self._norm_exp_matrix
 
-    def apply_corrections(self, corrections, only_new=False):
+    def apply_corrections(self, corrections, only_new=False, target='internal'):
         """Update the experiment design table with custom corrections."""
 
         expd = self.experiment_design
         for correction in corrections:
+            if 'Target' in correction and correction['Target'] != target:
+                continue
+
             src = correction['Source']
             if 'Destination' in correction:
                 dest = correction['Destination']
