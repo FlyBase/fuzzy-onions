@@ -386,7 +386,7 @@ def proforma(ctx, spec, output):
             ct_symbol = cell_type.replace(' ', '_')
             generator = builder.get_generator(template='dataset/subresult')
             fills = {
-                'LC1a': f'{symbol}_cluster_{ct_symbol}s',
+                'LC1a': f'{symbol}_seq_clustering_{ct_symbol}s',
                 'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
                 'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
                 'LC3': symbol + '_seq_clustering',
