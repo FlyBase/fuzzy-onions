@@ -307,7 +307,7 @@ def sumexpr(ctx, specfile, output):
             # Build the result dataframe
             d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
             d['celltype'] = cell_type
-            d['sample'] = spec['Symbol'] + sample['Symbol']
+            d['sample'] = _get_cluster_symbol(spec['Symbol'] + sample['Symbol'], cell_type)
             if result is not None:
                 result = result.append(d)
             else:
@@ -383,10 +383,9 @@ def proforma(ctx, spec, output):
         generator.fill_template(fills)
 
         for cell_type, n in sample['Cell types'].items():
-            ct_symbol = cell_type.replace(' ', '_')
             generator = builder.get_generator(template='dataset/subresult')
             fills = {
-                'LC1a': f'{symbol}_seq_clustering_{ct_symbol}s',
+                'LC1a': _get_cluster_symbol(symbol, cell_type),
                 'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
                 'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
                 'LC3': symbol + '_seq_clustering',
@@ -397,6 +396,19 @@ def proforma(ctx, spec, output):
             generator.fill_template(fills)
 
     generator.write_terminator()
+
+
+def _get_cluster_symbol(sample_symbol, cell_type):
+    replace_rules = [
+        ('embryonic/larval ', ''),
+        ('embryonic ', ''),
+        ('larval ', ''),
+        ('adult ', ''),
+        (' ', '_'),
+        ]
+    for rule in replace_rules:
+        cell_type = cell_type.replace(rule[0], rule[1])
+    return f'{sample_symbol}_seq_clustering_{cell_type}s'
 
 
 @main.command()
