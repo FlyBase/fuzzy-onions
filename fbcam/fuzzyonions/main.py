@@ -352,8 +352,6 @@ def proforma(ctx, spec, output):
             'LC2b': 'isolated cells ; FBcv:0003047',
             'LC3': spec['Symbol'],
             'LC4g': f'<e><t>{stage}<a><s><note>',
-            'LC6e': sample['Cells'],
-            'LC6f': 'Number of cells in sample',
             'LC11m': 'multi-individual sample ; FBcv:0003141\n' +
                      'cell isolation ; FBcv:0003170'
             }
@@ -378,7 +376,8 @@ def proforma(ctx, spec, output):
             'LC2b': 'cell clustering analysis ; FBcv:0009002',
             'LC3': spec['Symbol'],
             'LC14b': symbol + '_seq',
-            'LC6d': 'Y'
+            'LC6e': sample['Cells'],
+            'LC6f': 'Number of cells in sample retained for analysis',
             }
         generator.fill_template(fills)
 
