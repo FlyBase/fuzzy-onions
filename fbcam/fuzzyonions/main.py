@@ -57,7 +57,8 @@ class FzoContext(object):
     def raw_store(self):
         if not self._store:
             d = self._config.get('store', 'directory')
-            self._store = FileStore(d)
+            dev = self._config.getboolean('store', 'staging', fallback=False)
+            self._store = FileStore(d, staging=dev)
         return self._store
 
     @property

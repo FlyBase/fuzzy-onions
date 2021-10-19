@@ -44,9 +44,9 @@ class DataType(IntFlag):
 class FileStore(object):
     """Represents a local file-based store for SCEA data."""
 
-    def __init__(self, directory):
+    def __init__(self, directory, staging=False):
         self._directory = directory
-        self._downloader = Downloader(directory)
+        self._downloader = Downloader(directory, staging)
         self._datatypes = (DataType.EXPERIMENT_DESIGN
                            | DataType.EXPERIMENT_METADATA
                            | DataType.NORMALISED_EXPRESSION_DATA
@@ -199,6 +199,7 @@ class Downloader(object):
     """Helper object to download data from the SCEA."""
 
     BASE_URL = 'https://www.ebi.ac.uk/gxa/sc/experiment'
+    BASE_URL_DEV = 'https://wwwdev.ebi.ac.uk/gxa/sc/experiment'
     FILES = {
         DataType.EXPERIMENT_METADATA: ('experiment-metadata', True),
         DataType.EXPERIMENT_DESIGN: ('experiment-design', False),
@@ -208,7 +209,7 @@ class Downloader(object):
         DataType.RAW_EXPRESSION_DATA: ('quantification-raw', True)
         }
 
-    def __init__(self, destination, base=BASE_URL):
+    def __init__(self, destination, staging=False):
         """Creates a new Downloader object.
         
         :param destination: the directory to store the downloaded
@@ -217,7 +218,10 @@ class Downloader(object):
         """
 
         self._outdir = destination
-        self._baseurl = base
+        if staging:
+            self._baseurl = self.BASE_URL_DEV
+        else:
+            self._baseurl = self.BASE_URL
 
     def get(self, dsid, data_type):
         """Download a dataset file from the SCEA.
