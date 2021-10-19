@@ -61,7 +61,7 @@ class FileStore(object):
     def datasets(self):
         """Gets all the datasets in the store."""
 
-        if not self._datasets:
+        if self._datasets is None:
             self._refresh()
         return [d for d in self._datasets.values()]
 
@@ -73,7 +73,7 @@ class FileStore(object):
             downloaded if it is not already available locally
         """
 
-        if not self._datasets:
+        if self._datasets is None:
             self._refresh()
 
         if dsid not in self._datasets.keys():
