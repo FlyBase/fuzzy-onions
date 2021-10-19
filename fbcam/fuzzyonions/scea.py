@@ -235,6 +235,10 @@ class Downloader(object):
                 filename, is_zip = Downloader.FILES[value]
                 self._download(dsid, filename, is_zip)
 
+        # FIXME: Need to check for download problems and only
+        # return True if everything went fine
+        return True
+
     def _check_dataset(self, dsid):
         url = f'{self._baseurl}s/{dsid}/results'
         with requests.head(url) as response:
