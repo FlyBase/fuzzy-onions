@@ -24,7 +24,7 @@
 from enum import IntFlag
 import logging
 import os
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 
 import requests
 import pandas
@@ -227,22 +227,32 @@ class Downloader(object):
         :return: True if the download was successful, False otherwise
         """
 
+        errors = 0
+
         if not self._check_dataset(dsid):
             return False
 
         for value in DataType:
             if data_type & value:
-                filename, is_zip = Downloader.FILES[value]
-                self._download(dsid, filename, is_zip)
+                try:
+                    filename, is_zip = Downloader.FILES[value]
+                    self._download(dsid, filename, is_zip)
+                except requests.RequestException as e:
+                    logging.info(f"Cannot download {filename}: {e}")
+                    errors += 1
+                except BadZipFile as e:
+                    logging.info(f"Cannot unzip {filename}: {e}")
+                    errors += 1
 
-        # FIXME: Need to check for download problems and only
-        # return True if everything went fine
-        return True
+        return errors == 0
 
     def _check_dataset(self, dsid):
         url = f'{self._baseurl}s/{dsid}/results'
-        with requests.head(url) as response:
-            return response.ok
+        try:
+            with requests.head(url) as response:
+                return response.ok
+        except requests.RequestException:
+            return False
 
     def _download(self, dsid, file_type, is_zip=False):
         z = 'zip' if is_zip else ''
@@ -257,6 +267,7 @@ class Downloader(object):
         logging.info(f"Downloading {url}")
 
         r = requests.get(url, stream=True)
+        r.raise_for_status()
         with open(dest, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=None):
                 fd.write(chunk)
