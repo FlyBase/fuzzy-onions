@@ -247,8 +247,10 @@ def extract(ctx, specfile, with_reads, text, output):
 @click.argument('specfile', type=click.File('r'))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
+@click.option('--header', '-H', is_flag=True, default=False,
+              help="Writes an uncommented header line.")
 @click.pass_obj
-def sumexpr(ctx, specfile, output):
+def sumexpr(ctx, specfile, output, header):
     """Summarize expression data from a dataset.
     
     This command expects a JSON file similar to the one used by the
@@ -315,7 +317,12 @@ def sumexpr(ctx, specfile, output):
                 result = d
 
     result.index.rename('genes', inplace=True)
-    result.dropna().to_csv(output, sep='\t')
+    if not header:
+        # Write a commented header line (needed for harvdev processing)
+        output.write('#genes\t')
+        output.write('\t'.join(result.columns))
+        output.write('\n')
+    result.dropna().to_csv(output, sep='\t', header=header)
 
 
 @main.command()
