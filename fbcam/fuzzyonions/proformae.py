@@ -119,6 +119,7 @@ TEMPLATES = {
             ('LC2b', None),
             ('LC3', None),
             ('LC14b', None),
+            ('LC14h', 'Dmel R6.32'),
             ('LC4a', 'Dmel'),
             ('LC6d', 'N'),
             ('LC6e', None),
