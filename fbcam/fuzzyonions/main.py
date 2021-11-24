@@ -21,6 +21,7 @@
 
 import logging
 import json
+from os import getenv
 from configparser import ConfigParser
 
 import click
@@ -46,12 +47,33 @@ This program is released under the terms of the 1-clause BSD licence.
 class FzoContext(object):
 
     def __init__(self, config_file):
+        self._config_file = config_file
         self._config = ConfigParser()
-        self._config.read(config_file)
 
+        self.reset()
+
+    @property
+    def has_config(self):
+        return self._has_config
+
+    @property
+    def config_file(self):
+        return self._config_file
+
+    def reset(self, options=None):
         self._store = None
         self._dataset = None
         self._subset = None
+
+        self._config.clear()
+
+        if options is not None:
+            self._config.read_dict(options)
+            self._has_config = True
+            with open(self._config_file, 'w') as f:
+                self._config.write(f)
+        else:
+            self._has_config = len(self._config.read(self._config_file));
 
     @property
     def raw_store(self):
@@ -89,7 +111,7 @@ class FzoContext(object):
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
 @click.version_option(version=__version__, message=prog_notice)
-@click.option('--config', '-c', type=click.Path(exists=True),
+@click.option('--config', '-c', type=click.Path(exists=False),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
               help="Path to an alternative configuration file.")
 @click.pass_context
@@ -101,6 +123,9 @@ def main(ctx, config):
 
     context = FzoContext(config)
     ctx.obj = context
+
+    if not context.has_config:
+        ctx.invoke(conf)
 
 
 @main.command()
@@ -450,6 +475,31 @@ def fixscea(ctx, spec):
             f.write('Original term\tProposed new term\tComment\n')
             for old, new, comment in correction['Values']:
                 f.write(f'{old}\t{new}\t{comment}\n')
+
+
+@main.command()
+@click.pass_obj
+def conf(ctx):
+    """Edit the configuration."""
+
+    if ctx.has_config:
+        click.termui.edit(filename=ctx.config_file)
+        ctx.reset()
+    else:
+        home = getenv('HOME')
+        store_dir = f'{home}/scRNAseq/raw'
+        proformae_dir = f'{home}/SVN_folders/proformae'
+
+        store_dir = click.termui.prompt("Raw data directory",
+                                        default=store_dir)
+        proformae_dir = click.termui.prompt("Proformae directory",
+                                            default=proformae_dir)
+
+        defaults = {
+            'store': {'directory': store_dir},
+            'proformae': {'directory': proformae_dir}
+            }
+        ctx.reset(options=defaults)
 
 
 main.add_command(explorer)
