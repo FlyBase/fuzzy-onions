@@ -166,7 +166,7 @@ class CuratedDataset(object):
                 # Build the result dataframe
                 d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
                 d['celltype'] = cell_type
-                d['sample'] = self._get_cluster_symbol(self._spec['Symbol'] + sample['Symbol'], cell_type)
+                d['sample'] = self._get_cluster_symbol(sample, cell_type)
                 if result is not None:
                     result = result.append(d)
                 else:
@@ -182,7 +182,7 @@ class CuratedDataset(object):
         """
 
         for sample in self._spec['Samples']:
-            symbol = self._spec['Symbol'] + sample['Symbol']
+            symbol = self._get_sample_symbol(sample)
             output.write(f"Sample {symbol}\n")
             output.write(f"  Cells: {sample['Cells']}\n")
             if 'Reads' in sample:
@@ -220,7 +220,7 @@ class CuratedDataset(object):
         generator.fill_template(fills)
 
         for sample in self._spec['Samples']:
-            symbol = self._spec['Symbol'] + sample['Symbol']
+            symbol = self._get_sample_symbol(sample)
             stage = sample['Stage']
             title = sample['Title']
 
@@ -263,7 +263,7 @@ class CuratedDataset(object):
             for cell_type, n in sample['Cell types'].items():
                 generator = builder.get_generator(template='dataset/subresult')
                 fills = {
-                    'LC1a': self._get_cluster_symbol(symbol, cell_type),
+                    'LC1a': self._get_cluster_symbol(sample, cell_type),
                     'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
                     'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
                     'LC3': symbol + '_seq_clustering',
@@ -310,7 +310,10 @@ class CuratedDataset(object):
                 for old, new, comment in correction['Values']:
                     f.write(f'{old}\t{new}\t{comment}\n')
 
-    def _get_cluster_symbol(self, sample_symbol, cell_type):
+    def _get_sample_symbol(self, sample):
+        return self._spec['Symbol'] + sample['Symbol']
+
+    def _get_cluster_symbol(self, sample, cell_type):
         replace_rules = [
             ('embryonic/larval ', ''),
             ('embryonic ', ''),
@@ -320,6 +323,7 @@ class CuratedDataset(object):
             ]
         for rule in replace_rules:
             cell_type = cell_type.replace(rule[0], rule[1])
+        sample_symbol = self._get_sample_symbol(sample)
         return f'{sample_symbol}_seq_clustering_{cell_type}s'
 
     def _get_sample_subset(self, sample):
