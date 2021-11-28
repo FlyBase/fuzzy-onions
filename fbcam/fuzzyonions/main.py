@@ -27,13 +27,12 @@ from configparser import ConfigParser
 import click
 from click_shell import shell
 from IPython import embed
-import numpy
-import pandas
 
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.scea import FileStore
 from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
+from fbcam.fuzzyonions.curation import CuratedDatasetFactory
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -64,6 +63,7 @@ class FzoContext(object):
         self._store = None
         self._dataset = None
         self._subset = None
+        self._curation_factory = None
 
         self._config.clear()
 
@@ -106,6 +106,12 @@ class FzoContext(object):
     @property
     def proformae_folder(self):
         return self._config.get('proformae', 'directory')
+
+    @property
+    def curation_factory(self):
+        if self._curation_factory is None:
+            self._curation_factory = CuratedDatasetFactory(self.raw_store)
+        return self._curation_factory
 
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
@@ -200,72 +206,12 @@ def extract(ctx, specfile, with_reads, text, output):
     }
     """
 
-    spec = json.load(specfile)
-    ds = ctx.raw_store.get(spec['Dataset ID'])
-    cell_type_column = spec.get('Cell types column', None)
-    excluded_cell_types = spec.get('Excluded cell types', [])
-    columns = spec.get('Conditions', None)
-
-    if 'Corrections' in spec:
-        ds.apply_corrections(spec['Corrections'])
-
-    for sample in spec['Samples']:
-
-        # Get the subset of cells for this sample
-        subset = ds.experiment_design
-        if columns:
-            selectors = sample['Selectors']
-            for i in range(len(columns)):
-                subset = subset.loc[subset[columns[i]] == selectors[i]]
-
-        # The number of cells is simply the number of rows
-        n_cells = len(subset)
-        sample['Cells'] = n_cells
-
-        # Same, but per cell type
-        sample['Cell types'] = {}
-        if cell_type_column is not None:
-            for cell_type in subset[cell_type_column].unique():
-                if cell_type not in excluded_cell_types:
-                    n = len(subset.loc[subset[cell_type_column] == cell_type])
-                    if n > 0:
-                        sample['Cell types'][cell_type] = n
-
-        # Get the number of reads from the raw expression matrix
-        if with_reads:
-            mm = ds.raw_expression
-
-            # FIXME
-            # In some datasets (at least E-GEOD-100058... for now), there
-            # is a discrepancy between the experiment design table and the
-            # expression matrix, where not all cell identifiers from the
-            # experiment design table have a corresponding column in the
-            # expression matrix. We need to remove those offending cell IDs
-            # before we look up the number of reads. Such a discrepancy
-            # MAY be an indicator that there's something fishy with the
-            # dataset, so if we detect it, we print a warning giving the
-            # extent of the discrepancy (how many cells are missing).
-            s2 = subset.loc[subset['Assay'].isin(mm.columns)]['Assay']
-            diff = n_cells - len(s2)
-            if diff > 0:
-                logging.warn(f"{sample['Symbol']}: {diff}/{n_cells} cells "
-                              "were removed because they are absent from "
-                              "the expression matrix.")
-
-            nreads = mm.loc[:, s2].sum().sum()
-            sample['Reads'] = int(nreads)
-
+    ds = ctx.curation_factory.from_specfile(specfile)
+    ds.extract(with_reads)
     if text:
-        for sample in spec['Samples']:
-            symbol = spec['Symbol'] + sample['Symbol']
-            output.write(f"Sample {symbol}\n")
-            output.write(f"  Cells: {sample['Cells']}\n")
-            if with_reads:
-                output.write(f"  Reads: {sample['Reads']}\n")
-            for cell_type, cells in sample['Cell types'].items():
-                output.write(f"    {cell_type}: {cells}\n")
+        ds.to_text(output)
     else:
-        json.dump(spec, output, indent=2)
+        ds.to_json(output)
 
 
 @main.command()
@@ -283,198 +229,38 @@ def sumexpr(ctx, specfile, output, header):
     expression matrix from a dataset.
     """
 
-    spec = json.load(specfile)
-    ds = ctx.raw_store.get(spec['Dataset ID'])
-    cell_type_column = spec['Cell types column']
-    excluded_cell_types = spec.get('Excluded cell types', [])
-    columns = spec.get('Conditions', None)
-
-    if 'Corrections' in spec:
-        ds.apply_corrections(spec['Corrections'])
-
-    # Get the normalized expression data in exploitable form
-    # HACK: The matrix read by SciPy's mmread function is filled with
-    # zeros. To replace them with NaN, we need to transform the spare
-    # matrix into a dense matrix. This is probably not very efficient,
-    # but it seems good enough even with some of the largest datasets
-    # currently available on SCEA.
-    matrix = ds.normalised_expression.transpose()
-    matrix = matrix.sparse.to_dense()
-    matrix.replace(0.0, numpy.nan, inplace=True)
-
-    # Join the expression matrix with the experiment design table to
-    # associate cell IDs with cell types
-    expd = ds.experiment_design.set_index('Assay')
-    matrix = matrix.join(expd[cell_type_column], on='cells')
-
-    result = None
-    for sample in spec['Samples']:
-
-        # Get the subset of cells for this sample
-        subset = ds.experiment_design
-        if columns:
-            selectors = sample['Selectors']
-            for i in range(len(columns)):
-                subset = subset.loc[subset[columns[i]] == selectors[i]]
-
-        # Subset of the expression matrix for this sample
-        sm = matrix.loc[subset['Assay']]
-
-        # Loop through cell types in this sample
-        cell_types = subset.loc[:, cell_type_column].dropna().unique()
-        for cell_type in [c for c in cell_types if c not in excluded_cell_types]:
-            # Subset of the expression matrix for this cell type
-            smc = sm.loc[sm[cell_type_column] == cell_type,:].set_index(cell_type_column)
-
-            # Mean expression
-            means = smc.mean()
-
-            # "Spread" of expression
-            spreads = smc.count() / len(smc)
-
-            # Build the result dataframe
-            d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
-            d['celltype'] = cell_type
-            d['sample'] = _get_cluster_symbol(spec['Symbol'] + sample['Symbol'], cell_type)
-            if result is not None:
-                result = result.append(d)
-            else:
-                result = d
-
-    result.index.rename('genes', inplace=True)
+    ds = ctx.curation_factory.from_specfile(specfile)
+    result = ds.summarise_expression()
     if not header:
         # Write a commented header line (needed for harvdev processing)
         output.write('#genes\t')
         output.write('\t'.join(result.columns))
         output.write('\n')
-    result.dropna().to_csv(output, sep='\t', header=header)
+    result.to_csv(output, sep='\t', header=header)
 
 
 @main.command()
-@click.argument('spec', type=click.File('r'))
+@click.argument('specfile', type=click.File('r'))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
-def proforma(ctx, spec, output):
+def proforma(ctx, specfile, output):
     """Generate a proforma for a dataset."""
 
-    spec = json.load(spec)
     builder = ProformaGeneratorBuilder(ctx.proformae_folder, output)
-
-    generator = builder.get_generator(template='pub_mini')
-    generator.fill_template()
-
-    generator = builder.get_generator(template='dataset/project')
-    fills = {
-        'LC1a': spec['Symbol'],
-        'LC2b': 'transcriptome ; FBcv:0003034',
-        'LC99a': spec['Dataset ID'],
-        'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets'
-        }
-    generator.fill_template(fills)
-
-    for sample in spec['Samples']:
-        symbol = spec['Symbol'] + sample['Symbol']
-        stage = sample['Stage']
-        title = sample['Title']
-
-        generator = builder.get_generator(template='dataset/biosample')
-        fills = {
-            'LC1a': symbol,
-            'LC6g': title,
-            'LC2b': 'isolated cells ; FBcv:0003047',
-            'LC3': spec['Symbol'],
-            'LC4g': f'<e><t>{stage}<a><s><note>',
-            'LC11m': 'multi-individual sample ; FBcv:0003141\n' +
-                     'cell isolation ; FBcv:0003170'
-            }
-        generator.fill_template(fills)
-
-        generator = builder.get_generator(template='dataset/assay')
-        fills = {
-            'LC1a': symbol + '_seq',
-            'LC6g': f'Single-cell RNA-seq of {title}',
-            'LC2b': 'single-cell RNA-Seq ; FBcv:0009000',
-            'LC3': spec['Symbol'],
-            'LC14a': symbol,
-            'LC6e': sample['Reads'],
-            'LC6f': 'Number of reads'
-            }
-        generator.fill_template(fills)
-
-        generator = builder.get_generator(template='dataset/result')
-        fills = {
-            'LC1a': symbol + '_seq_clustering',
-            'LC6g': f'Clustering analysis of {title}',
-            'LC2b': 'cell clustering analysis ; FBcv:0009002',
-            'LC3': spec['Symbol'],
-            'LC14b': symbol + '_seq',
-            'LC6e': sample['Cells'],
-            'LC6f': 'Number of cells in sample retained for analysis',
-            }
-        generator.fill_template(fills)
-
-        for cell_type, n in sample['Cell types'].items():
-            generator = builder.get_generator(template='dataset/subresult')
-            fills = {
-                'LC1a': _get_cluster_symbol(symbol, cell_type),
-                'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
-                'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
-                'LC3': symbol + '_seq_clustering',
-                'LC4g': f'<e><t>{stage}<a>{cell_type}<s><note>',
-                'LC6e': n,
-                'LC6f': 'Number of cells in cluster'
-                }
-            generator.fill_template(fills)
-
-    generator.write_terminator()
-
-
-def _get_cluster_symbol(sample_symbol, cell_type):
-    replace_rules = [
-        ('embryonic/larval ', ''),
-        ('embryonic ', ''),
-        ('larval ', ''),
-        ('adult ', ''),
-        (' ', '_'),
-        ]
-    for rule in replace_rules:
-        cell_type = cell_type.replace(rule[0], rule[1])
-    return f'{sample_symbol}_seq_clustering_{cell_type}s'
+    ds = ctx.curation_factory.from_specfile(specfile)
+    ds.to_proforma(builder)
 
 
 @main.command()
-@click.argument('spec', type=click.File('r'))
+@click.argument('specfile', type=click.File('r'))
 @click.pass_obj
-def fixscea(ctx, spec):
+def fixscea(ctx, specfile):
     """Generate correction files for the SCEA."""
 
-    spec = json.load(spec)
-    if not 'Corrections' in spec:
-        print("No corrections found in spec file")
-        return
-
-    ds = ctx.raw_store.get(spec['Dataset ID'])
-    ds.apply_corrections(spec['Corrections'], only_new=True, target='scea')
-    ds.experiment_design.to_csv('experiment-design.with-fbids.tsv', sep='\t')
-
-    cell_type_column = spec.get('Cell types column', None)
-    if cell_type_column is None:
-        cell_type_column = spec.get('Source cell types column', None)
-        if cell_type_column is None:
-            return
-
-    for correction in spec['Corrections']:
-        if correction['Source'] != cell_type_column:
-            continue
-
-        if 'Target' in correction and correction['Target'] != 'scea':
-            continue
-
-        with open('celltypes-fbterms.tsv', 'w') as f:
-            f.write('Original term\tProposed new term\tComment\n')
-            for old, new, comment in correction['Values']:
-                f.write(f'{old}\t{new}\t{comment}\n')
+    ds = ctx.curation_factory.from_specfile(specfile)
+    ds.generate_scea_files('experiment-design.with-fbids.tsv',
+                           'celltypes-fbterms.tsv')
 
 
 @main.command()
