@@ -78,19 +78,11 @@ class CuratedDataset(object):
             of reads
         """
 
-        columns = self._spec.get('Conditions', None)
-
         if 'Corrections' in self._spec:
             self._ds.apply_corrections(self._spec['Corrections'])
 
         for sample in self._spec['Samples']:
-
-            # Get the subset of cells for this sample
-            subset = self._ds.experiment_design
-            if columns:
-                selectors = sample['Selectors']
-                for i in range(len(columns)):
-                    subset = subset.loc[subset[columns[i]] == selectors[i]]
+            subset = self._get_sample_subset(sample)
 
             # The number of cells is simply the number of rows
             n_cells = len(subset)
@@ -134,8 +126,6 @@ class CuratedDataset(object):
     def summarise_expression(self):
         """Generates a summarised expression table."""
 
-        columns = self._spec.get('Conditions', None)
-
         if 'Corrections' in self._spec:
             self._ds.apply_corrections(self._spec['Corrections'])
 
@@ -156,13 +146,7 @@ class CuratedDataset(object):
 
         result = None
         for sample in self._spec['Samples']:
-
-            # Get the subset of cells for this sample
-            subset = self._ds.experiment_design
-            if columns:
-                selectors = sample['Selectors']
-                for i in range(len(columns)):
-                    subset = subset.loc[subset[columns[i]] == selectors[i]]
+            subset = self._get_sample_subset(sample)
 
             # Subset of the expression matrix for this sample
             sm = matrix.loc[subset['Assay']]
@@ -337,6 +321,16 @@ class CuratedDataset(object):
         for rule in replace_rules:
             cell_type = cell_type.replace(rule[0], rule[1])
         return f'{sample_symbol}_seq_clustering_{cell_type}s'
+
+    def _get_sample_subset(self, sample):
+        columns = self._spec.get('Conditions', None)
+        subset = self._ds.experiment_design
+        if columns:
+            selectors = sample['Selectors']
+            for i in range(len(columns)):
+                subset = subset.loc[subset[columns[i]] == selectors[i]]
+
+        return subset
 
 
 class CuratedDatasetFactory(object):
