@@ -61,7 +61,7 @@ class CuratedDataset(object):
         return self._spec.get('Extracted', False)
 
     @extracted.setter
-    def set_extracted(self, value):
+    def extracted(self, value):
         """Sets the extraction marker."""
 
         self._spec['Extracted'] = value
