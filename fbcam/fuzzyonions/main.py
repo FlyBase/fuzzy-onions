@@ -20,7 +20,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
-import json
 from os import getenv
 from configparser import ConfigParser
 
