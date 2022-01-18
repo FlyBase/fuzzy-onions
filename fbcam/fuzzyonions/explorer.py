@@ -80,12 +80,9 @@ def values(ctx, column, count_cells):
 @click.pass_obj
 def select(ctx, selectors, clear):
     """Select a subset of the experiment design."""
-
+    
     if clear:
         ctx.subset = None
-
-    expd = ctx.subset
-    values = []
 
     for selector in selectors:
         column, value = selector.split(':')
@@ -93,12 +90,11 @@ def select(ctx, selectors, clear):
         if not col:
             print(f"Column '{column}' not found")
             return
-
-        expd = expd.loc[expd[col] == value]
-        values.append(value)
-
-    ctx.subset = expd.loc[expd[col] == value]
-    print(f"{' > '.join(values)}: {len(ctx.subset)} cells")
+        
+        ctx.filter_subset(col, value)
+        
+    filter_string = ctx.get_filter_string()
+    print(f"{filter_string}: {len(ctx.subset)} cells")
 
 
 @explorer.command()

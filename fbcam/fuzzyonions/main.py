@@ -62,6 +62,7 @@ class FzoContext(object):
         self._store = None
         self._dataset = None
         self._subset = None
+        self._subset_filters = []
         self._curation_factory = None
 
         self._config.clear()
@@ -98,6 +99,8 @@ class FzoContext(object):
     @subset.setter
     def subset(self, subset):
         self._subset = subset
+        if subset is None:
+            self._subset_filters.clear()
 
     def load_dataset(self, dsid):
         self._dataset = self.raw_store.get(dsid)
@@ -111,7 +114,16 @@ class FzoContext(object):
         if self._curation_factory is None:
             self._curation_factory = CuratedDatasetFactory(self.raw_store)
         return self._curation_factory
-
+        
+    def filter_subset(self, column, value):
+        self.subset = self.subset.loc[self.subset[column] == value]
+        self._subset_filters.append([column, value])
+        
+    def get_filter_string(self):
+        if len(self._subset_filters) == 0:
+            return '(all)'
+        else:
+            return ' > '.join([b for _, b in self._subset_filters])
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
