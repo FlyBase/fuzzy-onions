@@ -65,7 +65,7 @@ def values(ctx, column, count_cells):
         print(f"Column '{column}' no found")
         return
 
-    for value in expd[col].unique():
+    for value in expd[col].dropna().unique():
         if count_cells:
             count = len(expd.loc[expd[col] == value])
             print(f"{value}: {count} cells")
