@@ -244,7 +244,7 @@ class CuratedDataset(object):
                 'LC3': self._spec['symbol'],
                 'LC14a': symbol,
                 'LC6e': sample['reads'],
-                'LC6f': 'Number of reads'
+                'LC6f': 'reads'
                 }
             generator.fill_template(fills)
 
@@ -256,7 +256,7 @@ class CuratedDataset(object):
                 'LC3': self._spec['symbol'],
                 'LC14b': symbol + '_seq',
                 'LC6e': sample['cells'],
-                'LC6f': 'Number of cells in sample retained for analysis'
+                'LC6f': 'cells'
                 }
             generator.fill_template(fills)
 
@@ -269,7 +269,7 @@ class CuratedDataset(object):
                     'LC3': symbol + '_seq_clustering',
                     'LC4g': f'<e><t>{stage}<a>{cell_type}<s><note>',
                     'LC6e': n,
-                    'LC6f': 'Number of cells in cluster'
+                    'LC6f': 'cells'
                     }
                 generator.fill_template(fills)
 
