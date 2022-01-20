@@ -155,12 +155,12 @@ class Dataset(object):
 
         expd = self.experiment_design
         for correction in corrections:
-            if 'Target' in correction and correction['Target'] != target:
+            if 'target' in correction and correction['target'] != target:
                 continue
 
-            src = correction['Source']
-            if 'Destination' in correction:
-                dest = correction['Destination']
+            src = correction['source']
+            if 'destination' in correction:
+                dest = correction['destination']
                 # We are adding a new column
                 expd[dest] = pandas.Series(dtype='string')
             else:
@@ -169,7 +169,7 @@ class Dataset(object):
                     continue
                 dest = src
 
-            for old, new, _ in correction['Values']:
+            for old, new, _ in correction['values']:
                 if len(new) == 0:
                     new = pandas.NA
                 expd.loc[expd[src] == old, dest] = new

@@ -50,35 +50,35 @@ Here is a sample description file:
 
 ```
 {
-    "Dataset ID": "<the SCEA dataset ID>",
-    "Symbol": "<Base symbol to use for FlyBase FBlc entities>",
-    "Cell types column": "<Name of the column containing cell types>",
-    "Corrections": [
+    "dataset_id": "<the SCEA dataset ID>",
+    "symbol": "<Base symbol to use for FlyBase FBlc entities>",
+    "cell_types_column": "<Name of the column containing cell types>",
+    "corrections": [
     	# List of "corrections" to apply to SCEA annotations
     	{
-    		"Source": "<Source column to correct>",
-    		"Destination:" "<Name of the column to add>",
-    		"Values": [
+    		"source": "<Source column to correct>",
+    		"destination:" "<Name of the column to add>",
+    		"values": [
     			# List of replacements to do
     			[ "Original value", "New value", "Comment" ]
     		]
     	}
     ],
-    "Conditions": [
+    "conditions": [
          # List of columns in the experiment design table
          # used to select cells belonging to different samples
     ],
-    "Samples": [
+    "samples": [
     	# List of biosamples in the datasets
     	{
-    		"Symbol": "<Suffix to identify the biosample>",
-    		"Selectors": [
+    		"symbol": "<Suffix to identify the biosample>",
+    		"selectors": [
     			# List of values to select cells belonging to
     			# that biosample (in the same order as in the
     			# "Conditions" key above)
     		],
-    		"Title": "<Free-text name of that biosample>",
-    		"Stage": "<Developmental stage, as a FBdv term>"
+    		"title": "<Free-text name of that biosample>",
+    		"stage": "<Developmental stage, as a FBdv term>"
     	}
     ]
 }
