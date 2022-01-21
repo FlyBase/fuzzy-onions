@@ -114,16 +114,17 @@ class FzoContext(object):
         if self._curation_factory is None:
             self._curation_factory = CuratedDatasetFactory(self.raw_store)
         return self._curation_factory
-        
+
     def filter_subset(self, column, value):
         self.subset = self.subset.loc[self.subset[column] == value]
         self._subset_filters.append([column, value])
-        
+
     def get_filter_string(self):
         if len(self._subset_filters) == 0:
             return '(all)'
         else:
             return ' > '.join([b for _, b in self._subset_filters])
+
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
@@ -202,15 +203,15 @@ def extract(ctx, specfile, with_reads, text, output):
     \b
     Sample JSON input file:
     {
-        "Symbol": <symbol to use in FlyBase>
-        "Dataset ID": <SCEA dataset ID>,
-        "Cell types column": <name of the column for cell types>,
-        "Excluded cell types": <list of cell types to ignore>,
-        "Conditions": <list of columns used to assign cells to samples>,
-        "Samples": [
+        "symbol": <symbol to use in FlyBase>
+        "dataset_id": <SCEA dataset ID>,
+        "cell_types_column": <name of the column for cell types>,
+        "excluded_cell_types": <list of cell types to ignore>,
+        "conditions": <list of columns used to assign cells to samples>,
+        "samples": [
             {
-                "Symbol": <suffix to add to the dataset-level symbol>,
-                "Selectors": <list of values used to select cells>
+                "symbol": <suffix to add to the dataset-level symbol>,
+                "selectors": <list of values used to select cells>
             },
             <repeat for as many samples as needed>
         ]

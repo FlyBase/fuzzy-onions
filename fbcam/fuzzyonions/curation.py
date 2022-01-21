@@ -114,7 +114,7 @@ class CuratedDataset(object):
                 present = subset.loc[subset['Assay'].isin(mm.columns)]['Assay']
                 diff = n_cells - len(present)
                 if diff > 0:
-                    logging.warn(f"{sample['Symbol']}: {diff}/{n_cells} cells "
+                    logging.warn(f"{sample['symbol']}: {diff}/{n_cells} cells "
                                   "were removed because they are absent from "
                                   "the expression matrix.")
 
