@@ -46,20 +46,40 @@ class JsonEnum(Enum):
 class SceaStatus(JsonEnum):
     """Status of a dataset in the SCEA pipeline."""
 
-    IN_QUEUE = 0,
-    IN_PROGRESS = 1,
-    IN_STAGING = 2,
-    IN_PRODUCTION = 3
+    UNKNOWN = 0,
+    IN_QUEUE = 1,
+    IN_PROGRESS = 2,
+    IN_STAGING = 3,
+    IN_PRODUCTION = 4
 
 
 class FlyBaseRecordStatus(JsonEnum):
     """Status of a FlyBase record for a dataset."""
 
-    IN_PROGRESS = 0,
-    READY = 1,
-    LOADING = 2,
-    LOADED = 3,
-    IN_PRODUCTION = 4
+    UNKNOWN = 0,
+    IN_PROGRESS = 1,
+    READY = 2,
+    LOADING = 3,
+    LOADED = 4,
+    IN_PRODUCTION = 5
+
+
+class FlyBaseEvaluation(JsonEnum):
+    """FlyBase decision about integrating a dataset."""
+
+    UNKNOWN = 0,
+    INCLUDE = 1,
+    EXCLUDE = 2,
+    HOLD = 3
+
+
+class CorrectionStatus(JsonEnum):
+    """Status of a correction set."""
+
+    UNKNOWN = 0,
+    NOT_NEEDED = 1,
+    TODO = 2,
+    DONE = 3
 
 
 class DatasetTracker(object):
@@ -106,12 +126,19 @@ class TrackedDataset(object):
         self._data = basedict
         self._scea = None
         self._ctypes = None
+        self._flybase = None
 
     @property
     def scea(self):
         if self._scea is None:
             self._scea = SceaData(basedict=self._data['scea'])
         return self._scea
+
+    @property
+    def flybase(self):
+        if self._flybase is None:
+            self._flybase = FlyBaseData(basedict=self._data.get('flybase', {}))
+        return self._flybase
 
     @property
     def cell_types(self):
@@ -137,6 +164,92 @@ class SceaData(object):
     @property
     def upstream_identifier(self):
         return self._data.get('upstream_id')
+
+
+class FlyBaseData(object):
+    """Represents the FlyBase view of a dataset."""
+
+    def __init__(self, basedict={}):
+        self._data = basedict
+        self._corrections = None
+
+    @property
+    def reference(self):
+        return self._data.get('FBrf')
+
+    @property
+    def decision(self):
+        return FlyBaseEvaluation.from_str(
+            self._data.get('evaluation', {}).get('decision', 'unknown'))
+
+    @property
+    def is_accepted(self):
+        return self.decision == FlyBaseEvaluation.INCLUDE
+
+    @property
+    def is_rejected(self):
+        return self.decision == FlyBaseEvaluation.EXCLUDE
+
+    @property
+    def is_held(self):
+        return self.decision == FlyBaseEvaluation.HOLD
+
+    @property
+    def comment(self):
+        return self._data.get('evaluation', {}).get('comment')
+
+    @property
+    def record_name(self):
+        return self._data.get('record', {}).get('name')
+
+    @property
+    def record_status(self):
+        return FlyBaseRecordStatus.from_str(
+            self._data.get('record', {}).get('status', 'unknown'))
+
+    @property
+    def sumexpr_status(self):
+        return FlyBaseRecordStatus.from_str(
+            self._data.get('sumexpr', {}).get('status', 'unknown'))
+
+    @property
+    def corrections(self):
+        if self._corrections is None:
+            self._corrections = CorrectionData(
+                basedict=self._data.get('corrections', {}))
+        return self._corrections
+
+
+class CorrectionData():
+    """Represents the informations about a correction set."""
+
+    def __init__(self, basedict={}):
+        self._data = basedict
+
+    @property
+    def status(self):
+        return CorrectionStatus.from_str(self._data.get('status', 'unknown'))
+
+    @property
+    def submitted(self):
+        dt = self._data.get('submitted')
+        if dt is None:
+            return None
+        return datetime.strptime(dt, '%Y-%m-%d')
+
+    def to_string(self):
+        if self.status == CorrectionStatus.NOT_NEEDED:
+            return "no corrections needed"
+        elif self.status == CorrectionStatus.TODO:
+            return "corrections needed"
+        elif self.status == CorrectionStatus.DONE:
+            dt = self.submitted
+            if dt:
+                return f"corrections submitted on {dt:%Y-%m-%d}"
+            else:
+                return "corrections done, not submitted"
+        else:
+            return "unknown"
 
 
 class CellTypesData(object):
@@ -169,16 +282,18 @@ class CellTypesData(object):
     def to_string(self):
         """Gets a one-line human-readable representation."""
 
-        if self.is_available:
-            return "Available"
+        if len(self._data) == 0:
+            return "unknown"
+        elif self.is_available:
+            return "available"
         elif not self.exists:
-            return "Inexistent"
+            return "inexistent"
         else:
             req_date = self.date_requested
             if req_date is None:
-                return "To be requested from upstream"
+                return "to be requested from upstream"
             else:
-                return f"Requested on {req_date:%Y-%m-%d}"
+                return f"requested on {req_date:%Y-%m-%d}"
 
 
 @click.group(invoke_without_command=True)
@@ -212,5 +327,19 @@ def show(ctx, dsid):
 
     print(f"Dataset ID: {ds.scea.identifier}")
     print(f"SCEA status: {ds.scea.status}")
-
     print(f"Cell type annotations: {ds.cell_types.to_string()}")
+
+    print(f"FlyBase evaluation: {ds.flybase.decision}", end='')
+    if ds.flybase.comment:
+        print(f" ({ds.flybase.comment})", end='')
+    print()
+    if ds.flybase.decision == FlyBaseEvaluation.INCLUDE:
+        print(f"Record: {ds.flybase.record_status}", end='')
+        if ds.flybase.record_name:
+            print(f" ({ds.flybase.record_name})", end='')
+        print()
+
+        if ds.cell_types.is_available:
+            print(f"Summarised expression table: {ds.flybase.sumexpr_status}")
+
+    print(f"Corrections: {ds.flybase.corrections.to_string()}")
