@@ -305,7 +305,7 @@ def conf(ctx):
                                             default=proformae_dir)
 
         defaults = {
-            'store': {'directory': store_dir},
+            'store': {'production': store_dir},
             'proformae': {'directory': proformae_dir}
             }
         ctx.reset(options=defaults)
