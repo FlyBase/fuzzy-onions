@@ -34,6 +34,7 @@ from fbcam.fuzzyonions.scea import FileStore, CombinedFileStore
 from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 from fbcam.fuzzyonions.curation import CuratedDatasetFactory
+from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -73,6 +74,7 @@ class FzoContext(object):
         self._subset = None
         self._subset_filters = []
         self._curation_factory = None
+        self._tracker = None
 
         self._config.clear()
 
@@ -101,6 +103,15 @@ class FzoContext(object):
             else:
                 raise Exception("Invalid store configuration.")
         return self._store
+
+    @property
+    def tracker(self):
+        if self._tracker is None:
+            track = self._config.get('tracking', 'file', fallback=None)
+            if not track:
+                track = '{}/track.json'.format(click.get_app_dir('fuzzyonions'))
+            self._tracker = DatasetTracker(track)
+        return self._tracker
 
     @property
     def dataset(self):
@@ -337,6 +348,7 @@ def conf(ctx):
 
 
 main.add_command(explorer)
+main.add_command(tracker)
 
 if __name__ == '__main__':
     main()
