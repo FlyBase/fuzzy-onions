@@ -19,6 +19,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from enum import IntFlag
 import logging
 from os import getenv
 from os.path import exists
@@ -43,11 +44,18 @@ This program is released under the terms of the 1-clause BSD licence.
 """
 
 
+class SourceStore(IntFlag):
+    BOTH = 0,
+    PRODUCTION = 1,
+    STAGING = 2
+
+
 class FzoContext(object):
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, source):
         self._config_file = config_file
         self._config = ConfigParser()
+        self._source = source
 
         self.reset()
 
@@ -81,14 +89,17 @@ class FzoContext(object):
         if not self._store:
             prod_dir = self._config.get('store', 'production', fallback=None)
             staging_dir = self._config.get('store', 'staging', fallback=None)
-            if prod_dir and staging_dir:
+
+            if prod_dir and staging_dir and self._source == SourceStore.BOTH:
                 self._store = CombinedFileStore(prod_dir, staging_dir)
-            elif prod_dir:
+            elif prod_dir and (self._source == SourceStore.BOTH or
+                               self._source == SourceStore.PRODUCTION):
                 self._store = FileStore(prod_dir)
-            elif staging_dir:
+            elif staging_dir and (self._source == SourceStore.BOTH or
+                                  self._source == SourceStore.STAGING):
                 self._store = FileStore(staging_dir, staging=True)
             else:
-                raise Exception("Invalid configuration: no store directory.")
+                raise Exception("Invalid store configuration.")
         return self._store
 
     @property
@@ -140,8 +151,12 @@ class FzoContext(object):
 @click.option('--config', '-c', type=click.Path(exists=False),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
               help="Path to an alternative configuration file.")
+@click.option('--production', '-p', is_flag=True, default=False,
+              help="Only use data from production server.")
+@click.option('--staging', '-s', is_flag=True, default=False,
+              help="Only use data from staging server.")
 @click.pass_context
-def main(ctx, config):
+def main(ctx, config, production, staging):
     """Helper scripts for the FlyBase scRNAseq project."""
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
@@ -150,7 +165,17 @@ def main(ctx, config):
     if not '/' in config and not exists(config):
         config = '{}/{}'.format(click.get_app_dir('fuzzyonions'), config)
 
-    context = FzoContext(config)
+    if production and staging:
+        raise click.ClickException("Cannot use both --production and "
+                                   "--staging.")
+    if production:
+        source = SourceStore.PRODUCTION
+    elif staging:
+        source = SourceStore.STAGING
+    else:
+        source = SourceStore.BOTH
+
+    context = FzoContext(config, source)
     ctx.obj = context
 
     if not context.has_config:
