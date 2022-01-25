@@ -42,6 +42,21 @@ class JsonEnum(Enum):
 
         return cls[name.replace('-', '_').upper()]
 
+    @classmethod
+    def values(cls):
+        """Gets possible JSON values."""
+
+        return [str(v) for v in cls]
+
+    @classmethod
+    def from_click(cls, ctx, param, value):
+        """Helper method to get a value from a click Choice."""
+
+        if value:
+            return cls.from_str(value)
+        else:
+            return None
+
 
 class SceaStatus(JsonEnum):
     """Status of a dataset in the SCEA pipeline."""
@@ -307,11 +322,29 @@ def tracker(ctx):
 
 
 @tracker.command('list')
+@click.option('--scea-status', type=click.Choice(SceaStatus.values()),
+              callback=SceaStatus.from_click,
+              help="Filter datasets on their SCEA status.")
+@click.option('--fb-decision', type=click.Choice(FlyBaseEvaluation.values()),
+              callback=FlyBaseEvaluation.from_click,
+              help="Filter datasets on the FlyBase decision status.")
+@click.option('--fb-status', type=click.Choice(FlyBaseRecordStatus.values()),
+              callback=FlyBaseRecordStatus.from_click,
+              help="Filter datasets on their FlyBase curation status.")
 @click.pass_obj
-def list_tracked_datasets(ctx):
+def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status):
     """List tracked datasets."""
 
     for ds in ctx.tracker.datasets:
+        if scea_status and ds.scea.status != scea_status:
+            continue
+
+        if fb_decision and ds.flybase.decision != fb_decision:
+            continue
+
+        if fb_status and ds.flybase.record_status != fb_status:
+            continue
+
         print(ds.scea.identifier)
 
 
