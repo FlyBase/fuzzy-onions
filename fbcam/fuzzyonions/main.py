@@ -29,7 +29,7 @@ from click_shell import shell
 from IPython import embed
 
 from fbcam.fuzzyonions import __version__
-from fbcam.fuzzyonions.scea import FileStore
+from fbcam.fuzzyonions.scea import FileStore, CombinedFileStore
 from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 from fbcam.fuzzyonions.curation import CuratedDatasetFactory
@@ -79,9 +79,16 @@ class FzoContext(object):
     @property
     def raw_store(self):
         if not self._store:
-            d = self._config.get('store', 'directory')
-            dev = self._config.getboolean('store', 'staging', fallback=False)
-            self._store = FileStore(d, staging=dev)
+            prod_dir = self._config.get('store', 'production', fallback=None)
+            staging_dir = self._config.get('store', 'staging', fallback=None)
+            if prod_dir and staging_dir:
+                self._store = CombinedFileStore(prod_dir, staging_dir)
+            elif prod_dir:
+                self._store = FileStore(prod_dir)
+            elif staging_dir:
+                self._store = FileStore(staging_dir, staging=True)
+            else:
+                raise Exception("Invalid configuration: no store directory.")
         return self._store
 
     @property
