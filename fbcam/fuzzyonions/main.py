@@ -21,6 +21,7 @@
 
 import logging
 from os import getenv
+from os.path import exists
 from configparser import ConfigParser
 
 import click
@@ -138,6 +139,9 @@ def main(ctx, config):
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
                         level=logging.INFO)
+
+    if not '/' in config and not exists(config):
+        config = '{}/{}'.format(click.get_app_dir('fuzzyonions'), config)
 
     context = FzoContext(config)
     ctx.obj = context
