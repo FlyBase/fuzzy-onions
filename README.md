@@ -16,7 +16,8 @@ Here is a sample configuration file:
 
 ```
 [store]
-directory: <path to a directory containing the datasets>
+production: <path to a directory containing the datasets>
+staging: <same, but for datasets from the staging server>
 
 [proformae]
 directory: <path to a directory containing FlyBase's proformae files>
