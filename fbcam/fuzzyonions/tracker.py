@@ -133,6 +133,12 @@ class DatasetTracker(object):
                 return ds
         return None
 
+    def save(self, newfile=None):
+        if newfile is None:
+            newfile = self._db_file
+        with open(newfile, 'w') as f:
+            json.dump([d._data for d in self._datasets], f, indent=2)
+
 
 class TrackedDataset(object):
     """Represents a single dataset."""
@@ -152,13 +158,17 @@ class TrackedDataset(object):
     @property
     def flybase(self):
         if self._flybase is None:
-            self._flybase = FlyBaseData(basedict=self._data.get('flybase', {}))
+            if not 'flybase' in self._data:
+                self._data['flybase'] = {}
+            self._flybase = FlyBaseData(basedict=self._data['flybase'])
         return self._flybase
 
     @property
     def cell_types(self):
         if self._ctypes is None:
-            self._ctypes = CellTypesData(basedict=self._data.get('cell_types_data', {}))
+            if not 'cell_types_data' in self._data:
+                self._data['cell_types_data'] = {}
+            self._ctypes = CellTypesData(basedict=self._data['cell_types_data'])
         return self._ctypes
 
 
@@ -196,6 +206,13 @@ class FlyBaseData(object):
     def decision(self):
         return FlyBaseEvaluation.from_str(
             self._data.get('evaluation', {}).get('decision', 'unknown'))
+
+    def decide(self, decision, comment=None):
+        if not 'evaluation' in self._data:
+            self._data['evaluation'] = {}
+        self._data['evaluation']['decision'] = str(decision)
+        if comment:
+            self._data['comment'] = comment
 
     @property
     def is_accepted(self):
@@ -317,8 +334,11 @@ def tracker(ctx):
     """Track datasets."""
 
     if not ctx.invoked_subcommand:
+        ctx.obj.in_tracker_shell = True
         shell = make_click_shell(ctx, prompt="fzo-tracker> ")
         shell.cmdloop()
+    else:
+        ctx.obj.in_tracker_shell = False
 
 
 @tracker.command('list')
@@ -376,3 +396,29 @@ def show(ctx, dsid):
             print(f"Summarised expression table: {ds.flybase.sumexpr_status}")
 
     print(f"Corrections: {ds.flybase.corrections.to_string()}")
+
+
+@tracker.command()
+@click.argument('dsid')
+@click.pass_obj
+def accept(ctx, dsid):
+    """Mark a dataset as accepted for curation in FlyBase."""
+
+    ds = ctx.tracker.get_dataset(dsid)
+    if not ds:
+        raise click.ClickException("Invalid Dataset ID.")
+
+    ds.flybase.decide(FlyBaseEvaluation.INCLUDE)
+    if not ctx.in_tracker_shell:
+        ctx.tracker.save()
+
+
+@tracker.command()
+@click.option('--filename', '-f',
+              type=click.Path(exists=False, writable=True, dir_okay=False),
+              help="Write to a different file.")
+@click.pass_obj
+def save(ctx, filename):
+    """Write modification to the tracking data."""
+
+    ctx.tracker.save(filename)
