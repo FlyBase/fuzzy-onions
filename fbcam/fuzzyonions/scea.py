@@ -73,6 +73,7 @@ class FileStore(object):
 
     def __init__(self, directory, staging=False):
         self._directory = directory
+        self._staging = staging
         self._downloader = Downloader(directory, staging)
         self._datatypes = (DataType.EXPERIMENT_DESIGN
                            | DataType.EXPERIMENT_METADATA
@@ -108,14 +109,16 @@ class FileStore(object):
                 return None
             elif not self._downloader.get(dsid, self._datatypes):
                 return None
-            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid))
+            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid),
+                                           self._staging)
 
         return self._datasets[dsid]
 
     def _refresh(self):
         self._datasets = {}
         for dsid in os.listdir(self._directory):
-            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid))
+            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid),
+                                           self._staging)
 
 
 class Dataset(object):
@@ -130,17 +133,22 @@ class Dataset(object):
         DataType.RAW_EXPRESSION_DATA: '{}.aggregated_filtered_counts.mtx'
         }
 
-    def __init__(self, directory):
+    def __init__(self, directory, staging=False):
         self._directory = directory
         self._id = os.path.basename(directory)
         self._files = os.listdir(directory)
         self._expdesign = None
         self._raw_exp_matrix = None
         self._norm_exp_matrix = None
+        self._staging = staging
 
     @property
     def id(self):
         return self._id
+
+    @property
+    def staging(self):
+        return self._staging
 
     @property
     def available_data(self):

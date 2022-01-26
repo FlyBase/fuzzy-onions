@@ -203,7 +203,10 @@ def download(ctx, dsid):
     SCEA server.
     """
 
-    ctx.raw_store.get(dsid)
+    ds = ctx.raw_store.get(dsid)
+    if ds:
+        ctx.tracker.add_dataset(dsid, ds.staging)
+        ctx.tracker.save()
 
 
 @main.command('list')

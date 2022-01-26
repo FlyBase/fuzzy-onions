@@ -134,10 +134,25 @@ class DatasetTracker(object):
         return None
 
     def save(self, newfile=None):
+        """Writes the tracking database to a file."""
+
         if newfile is None:
             newfile = self._db_file
         with open(newfile, 'w') as f:
             json.dump([d._data for d in self._datasets], f, indent=2)
+
+    def add_dataset(self, dsid, staging=False):
+        """Adds a dataset to track."""
+
+        if self.get_dataset(dsid):
+            return
+
+        status = SceaStatus.IN_PRODUCTION
+        if staging:
+            status = SceaStatus.IN_STAGING
+
+        ds = { 'scea': { 'dataset_id': dsid, 'status': str(status)} }
+        self._datasets.append(TrackedDataset(basedict=ds))
 
 
 class TrackedDataset(object):
@@ -411,6 +426,14 @@ def accept(ctx, dsid):
     ds.flybase.decide(FlyBaseEvaluation.INCLUDE)
     if not ctx.in_tracker_shell:
         ctx.tracker.save()
+
+
+@tracker.command()
+@click.pass_obj
+def add(ctx, dsid):
+    """Add a Dataset ID to track."""
+
+    ctx.tracker.add_dataset(dsid)
 
 
 @tracker.command()
