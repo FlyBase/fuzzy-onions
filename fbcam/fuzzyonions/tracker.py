@@ -418,11 +418,23 @@ class CellTypesData(object):
         self._requested = None
 
     @property
+    def status(self):
+        return self._status
+
+    @property
     def exists(self):
         """Have cell types been inferred by the authors?"""
 
         return self._status in [CellTypeAvailability.UPSTREAM,
                                 CellTypeAvailability.AVAILABLE]
+
+    @exists.setter
+    def exists(self, value):
+        if value:
+            if self._status != CellTypeAvailability.AVAILABLE:
+                self._status = CellTypeAvailability.UPSTREAM
+        else:
+            self._status = CellTypeAvailability.INEXISTENT
 
     @property
     def is_available(self):
@@ -430,11 +442,31 @@ class CellTypesData(object):
 
         return self._status == CellTypeAvailability.AVAILABLE
 
+    @is_available.setter
+    def is_available(self, value):
+        if value:
+            self._status = CellTypeAvailability.AVAILABLE
+        elif self._status == CellTypeAvailability.AVAILABLE:
+            # Downgrade to only available upstream
+            self._status = CellTypeAvailability.UPSTREAM
+
     @property
     def date_requested(self):
         """When have annotations been requested from upstream?"""
 
         return self._requested
+
+    def set_to_request(self):
+        """Marks that cell types are to be requested."""
+
+        self._status = CellTypeAvailability.UPSTREAM
+        self._requested = None
+
+    def set_requested(self, date=datetime.today()):
+        """Marks that cell types have been requested."""
+
+        self._status = CellTypeAvailability.UPSTREAM
+        self._requested = date
 
     def to_string(self):
         """Gets a one-line human-readable representation."""
@@ -509,8 +541,11 @@ def tracker(ctx):
 @click.option('--fb-status', type=click.Choice(FlyBaseRecordStatus.values()),
               callback=FlyBaseRecordStatus.from_click,
               help="Filter datasets on their FlyBase curation status.")
+@click.option('--ct-status', type=click.Choice(CellTypeAvailability.values()),
+              callback=CellTypeAvailability.from_click,
+              help="Filter datasets on cell types availability.")
 @click.pass_obj
-def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status):
+def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status, ct_status):
     """List tracked datasets."""
 
     for ds in ctx.tracker.datasets:
@@ -521,6 +556,9 @@ def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status):
             continue
 
         if fb_status and ds.flybase.record_status != fb_status:
+            continue
+
+        if ct_status and ds.cell_types.status != ct_status:
             continue
 
         print(ds.scea.identifier)
@@ -577,6 +615,32 @@ def add(ctx, dsid):
     """Add a Dataset ID to track."""
 
     ctx.tracker.add_dataset(dsid)
+
+
+@tracker.command()
+@click.argument('dsid')
+@click.option('--cell-types',
+              type=click.Choice(['no', 'yes', 'to-request', 'requested']),
+              help="Update what’s known about cell type annotations.")
+@click.pass_obj
+def update(ctx, dsid, cell_types):
+    """Update informations about a dataset."""
+
+    ds = ctx.tracker.get_dataset(dsid)
+    if not ds:
+        raise click.ClickException("Invalid Dataset ID.")
+
+    if cell_types == 'no':
+        ds.cell_types.exists = False
+    elif cell_types == 'yes':
+        ds.cell_types.is_available = True
+    elif cell_types == 'to-request':
+        ds.cell_types.set_to_request()
+    elif cell_types == 'requested':
+        ds.cell_types.set_requested()
+
+    if not ctx.in_tracker_shell:
+        ctx.tracker.save()
 
 
 @tracker.command()
