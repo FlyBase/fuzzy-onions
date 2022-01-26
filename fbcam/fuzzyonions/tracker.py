@@ -97,6 +97,15 @@ class CorrectionStatus(JsonEnum):
     DONE = 3
 
 
+class CellTypeAvailability(JsonEnum):
+    """Status of cell type annotations."""
+
+    UNKNOWN = 0,
+    INEXISTENT = 1,
+    UPSTREAM = 2,
+    AVAILABLE = 3
+
+
 class DatasetTracker(object):
     """Helper object to track datasets.
     
@@ -123,7 +132,7 @@ class DatasetTracker(object):
             with open(self._db_file, 'r') as f:
                 self._datasets = []
                 for d in json.load(f):
-                    self._datasets.append(TrackedDataset(basedict=d))
+                    self._datasets.append(TrackedDataset.from_dict(d))
 
     def get_dataset(self, dsid):
         """Gets a dataset from its SCEA ID."""
@@ -139,7 +148,7 @@ class DatasetTracker(object):
         if newfile is None:
             newfile = self._db_file
         with open(newfile, 'w') as f:
-            json.dump([d._data for d in self._datasets], f, indent=2)
+            json.dump([d.to_dict() for d in self.datasets], f, indent=2)
 
     def add_dataset(self, dsid, staging=False):
         """Adds a dataset to track."""
@@ -152,82 +161,125 @@ class DatasetTracker(object):
             status = SceaStatus.IN_STAGING
 
         ds = { 'scea': { 'dataset_id': dsid, 'status': str(status)} }
-        self._datasets.append(TrackedDataset(basedict=ds))
+        self._datasets.append(TrackedDataset.from_dict(ds))
 
 
 class TrackedDataset(object):
     """Represents a single dataset."""
 
-    def __init__(self, basedict={}):
-        self._data = basedict
-        self._scea = None
-        self._ctypes = None
+    def __init__(self):
+        self._scea = SceaData()
         self._flybase = None
+        self._ctypes = None
 
     @property
     def scea(self):
-        if self._scea is None:
-            self._scea = SceaData(basedict=self._data['scea'])
         return self._scea
 
     @property
     def flybase(self):
         if self._flybase is None:
-            if not 'flybase' in self._data:
-                self._data['flybase'] = {}
-            self._flybase = FlyBaseData(basedict=self._data['flybase'])
+            self._flybase = FlyBaseData()
         return self._flybase
 
     @property
     def cell_types(self):
         if self._ctypes is None:
-            if not 'cell_types_data' in self._data:
-                self._data['cell_types_data'] = {}
-            self._ctypes = CellTypesData(basedict=self._data['cell_types_data'])
+            self._ctypes = CellTypesData()
         return self._ctypes
+
+    def to_dict(self):
+        d = { 'scea': self._scea.to_dict() }
+        if not self.flybase.is_empty:
+            d['flybase'] = self.flybase.to_dict()
+        if self.cell_types._status != CellTypeAvailability.UNKNOWN:
+            d['cell_types_data'] = self.cell_types.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        new = cls()
+
+        new._scea = SceaData.from_dict(data['scea'])
+        if 'flybase' in data:
+            new._flybase = FlyBaseData.from_dict(data['flybase'])
+        if 'cell_types_data' in data:
+            new._ctypes = CellTypesData.from_dict(data['cell_types_data'])
+
+        return new
 
 
 class SceaData(object):
     """Represents the SCEA view of a dataset."""
 
-    def __init__(self, basedict={}):
-        self._data = basedict
+    def __init__(self):
+        self._dataset_id = '<unknown id>'
+        self._upstream_id = None
+        self._status = SceaStatus.UNKNOWN
 
     @property
     def identifier(self):
-        return self._data['dataset_id']
+        return self._dataset_id
 
     @property
     def status(self):
-        return SceaStatus.from_str(self._data['status'])
+        return self._status
 
     @property
     def upstream_identifier(self):
-        return self._data.get('upstream_id')
+        return self._upstream_id
+
+    def to_dict(self):
+        d = { 'dataset_id': self._dataset_id }
+        if self._upstream_id:
+            d['upstream_id'] = self._upstream_id
+        if self._status != SceaStatus.UNKNOWN:
+            d['status'] = str(self._status)
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        new = cls()
+        new._dataset_id = data.get('dataset_id', '<unknown id>')
+        new._upstream_id = data.get('upstream_id')
+        new._status = SceaStatus.from_str(data.get('status', 'unknown'))
+        return new
 
 
 class FlyBaseData(object):
     """Represents the FlyBase view of a dataset."""
 
-    def __init__(self, basedict={}):
-        self._data = basedict
-        self._corrections = None
+    def __init__(self):
+        self._reference = None
+        self._decision = FlyBaseEvaluation.UNKNOWN
+        self._comment = None
+        self._name = None
+        self._status = FlyBaseRecordStatus.UNKNOWN
+        self._sumexpr = FlyBaseRecordStatus.UNKNOWN
+        self._corrections = CorrectionData()
+
+    @property
+    def is_empty(self):
+        return (self._reference is None and
+                self._decision == FlyBaseEvaluation.UNKNOWN and
+                self._status == FlyBaseRecordStatus.UNKNOWN and
+                self._sumexpr == FlyBaseRecordStatus.UNKNOWN)
 
     @property
     def reference(self):
-        return self._data.get('FBrf')
+        return self._reference
+
+    @reference.setter
+    def reference(self, value):
+        self._reference = value
 
     @property
     def decision(self):
-        return FlyBaseEvaluation.from_str(
-            self._data.get('evaluation', {}).get('decision', 'unknown'))
+        return self._decision
 
     def decide(self, decision, comment=None):
-        if not 'evaluation' in self._data:
-            self._data['evaluation'] = {}
-        self._data['evaluation']['decision'] = str(decision)
-        if comment:
-            self._data['comment'] = comment
+        self._decision = decision
+        self._comment = comment
 
     @property
     def is_accepted(self):
@@ -243,46 +295,91 @@ class FlyBaseData(object):
 
     @property
     def comment(self):
-        return self._data.get('evaluation', {}).get('comment')
+        return self._comment
 
     @property
     def record_name(self):
-        return self._data.get('record', {}).get('name')
+        return self._name
+
+    @record_name.setter
+    def record_name(self, value):
+        self._name = value
 
     @property
     def record_status(self):
-        return FlyBaseRecordStatus.from_str(
-            self._data.get('record', {}).get('status', 'unknown'))
+        return self._status
+
+    def update_record(self, status, name=None):
+        self._status = status
+        if name:
+            self._name = name
 
     @property
     def sumexpr_status(self):
-        return FlyBaseRecordStatus.from_str(
-            self._data.get('sumexpr', {}).get('status', 'unknown'))
+        return self._sumexpr
 
     @property
     def corrections(self):
-        if self._corrections is None:
-            self._corrections = CorrectionData(
-                basedict=self._data.get('corrections', {}))
         return self._corrections
+
+    def to_dict(self):
+        d = {}
+        if self._reference:
+            d['fbrf'] = self._reference
+        if self._decision != FlyBaseEvaluation.UNKNOWN:
+            d['evaluation'] = { 'decision': str(self._decision) }
+            if self._comment:
+                d['evaluation']['comment'] = self._comment
+        if self._status != FlyBaseRecordStatus.UNKNOWN:
+            d['record'] = { 'status': str(self._status) }
+            if self._name:
+                d['record']['name'] = self._name
+        if self._sumexpr != FlyBaseRecordStatus.UNKNOWN:
+            d['sumexpr'] = { 'status': str(self._sumexpr)}
+        if self.corrections.status != CorrectionStatus.UNKNOWN:
+            d['corrections'] = self.corrections.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        new = cls()
+
+        new._reference = data.get('fbrf')
+
+        if 'evaluation' in data:
+            new._decision = FlyBaseEvaluation.from_str(
+                data['evaluation'].get('decision', 'unknown'))
+            new._comment = data['evaluation'].get('comment')
+
+        if 'record' in data:
+            new._status = FlyBaseRecordStatus.from_str(
+                data['record'].get('status', 'unknown'))
+            new._name = data['record'].get('name')
+
+        if 'sumexpr' in data:
+            new._sumexpr = FlyBaseRecordStatus.from_str(
+                data['sumexpr'].get('status', 'unknown'))
+
+        if 'corrections' in data:
+            new._corrections = CorrectionData.from_dict(data['corrections'])
+
+        return new
 
 
 class CorrectionData():
     """Represents the informations about a correction set."""
 
-    def __init__(self, basedict={}):
-        self._data = basedict
+    def __init__(self):
+        self._status = CorrectionStatus.UNKNOWN
+        self._submitted = None
 
     @property
     def status(self):
-        return CorrectionStatus.from_str(self._data.get('status', 'unknown'))
+        return self._status
 
     @property
     def submitted(self):
-        dt = self._data.get('submitted')
-        if dt is None:
-            return None
-        return datetime.strptime(dt, '%Y-%m-%d')
+        return self._submitted
 
     def to_string(self):
         if self.status == CorrectionStatus.NOT_NEEDED:
@@ -298,49 +395,95 @@ class CorrectionData():
         else:
             return "unknown"
 
+    def to_dict(self):
+        d = { 'status': str(self._status) }
+        if self._submitted:
+            d['submitted'] = self._submitted.strftime('%Y-%m-%d')
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        new = cls()
+        new._status = CorrectionStatus.from_str(data.get('status', 'unknown'))
+        if 'submitted' in data:
+            new._submitted = datetime.strptime(data['submitted'], '%Y-%m-%d')
+        return new
+
 
 class CellTypesData(object):
     """Represents the informations on cell types annotations."""
 
-    def __init__(self, basedict={}):
-        self._data = basedict
+    def __init__(self):
+        self._status = CellTypeAvailability.UNKNOWN
+        self._requested = None
 
     @property
     def exists(self):
         """Have cell types been inferred by the authors?"""
 
-        return self._data.get('exist', 'no') == 'yes'
+        return self._status in [CellTypeAvailability.UPSTREAM,
+                                CellTypeAvailability.AVAILABLE]
 
     @property
     def is_available(self):
         """Are inferred cell types available at the SCEA?"""
 
-        return self._data.get('available', 'no') == 'yes'
+        return self._status == CellTypeAvailability.AVAILABLE
 
     @property
     def date_requested(self):
         """When have annotations been requested from upstream?"""
 
-        dt = self._data.get('requested')
-        if dt is None:
-            return None
-        return datetime.strptime(dt, '%Y-%m-%d')
+        return self._requested
 
     def to_string(self):
         """Gets a one-line human-readable representation."""
 
-        if len(self._data) == 0:
+        if self._status == CellTypeAvailability.UNKNOWN:
             return "unknown"
-        elif self.is_available:
+        elif self._status == CellTypeAvailability.AVAILABLE:
             return "available"
-        elif not self.exists:
+        elif self._status == CellTypeAvailability.INEXISTENT:
             return "inexistent"
+        elif self._requested is None:
+            return "to be requested from upstream"
         else:
-            req_date = self.date_requested
-            if req_date is None:
-                return "to be requested from upstream"
-            else:
-                return f"requested on {req_date:%Y-%m-%d}"
+            return f"requested on {self._requested:%Y-%m-%d}"
+
+    def to_dict(self):
+        d = {}
+        if self._status == CellTypeAvailability.INEXISTENT:
+            d['exist'] = 'no'
+        elif self._status == CellTypeAvailability.UPSTREAM:
+            d['exist'] = 'yes'
+            d['available'] = 'no'
+        elif self._status == CellTypeAvailability.AVAILABLE:
+            d['exist'] = 'yes'
+            d['available'] = 'yes'
+        if self._requested:
+            d['requested'] = self._requested.strftime('%Y-%m-%d')
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        new = cls()
+
+        avail = data.get('available')
+        exist = data.get('exist')
+
+        if avail == 'yes':
+            new._status = CellTypeAvailability.AVAILABLE
+        elif exist == 'yes':
+            new._status = CellTypeAvailability.UPSTREAM
+        elif exist == 'no':
+            new._status = CellTypeAvailability.INEXISTENT
+        else:
+            exist = CellTypeAvailability.UNKNOWN
+
+        if 'requested' in data:
+            new._requested = datetime.strptime(data['requested'], '%Y-%m-%d')
+
+        return new
 
 
 @click.group(invoke_without_command=True)
