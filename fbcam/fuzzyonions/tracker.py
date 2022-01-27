@@ -320,6 +320,10 @@ class FlyBaseData(object):
     def sumexpr_status(self):
         return self._sumexpr
 
+    @sumexpr_status.setter
+    def sumexpr_status(self, value):
+        self._sumexpr = value
+
     @property
     def corrections(self):
         return self._corrections
@@ -635,6 +639,14 @@ def add(ctx, dsid):
               type=click.Choice(FlyBaseEvaluation.values()),
               callback=FlyBaseEvaluation.from_click,
               help="Set the FlyBase decision status.")
+@click.option('--record-status',
+              type=click.Choice(FlyBaseRecordStatus.values()),
+              callback=FlyBaseRecordStatus.from_click,
+              help="Set the status of the FlyBase record.")
+@click.option('--sumexpr-status',
+              type=click.Choice(FlyBaseRecordStatus.values()),
+              callback=FlyBaseRecordStatus.from_click,
+              help="Set the status of the summarised expression table.")
 @click.option('--comment', help="Set the comment from the FlyBase curator.")
 @click.option('--reference', help="Set the associated FlyBase reference.")
 @click.option('--record', help="Set the name of the FlyBase record.")
@@ -646,7 +658,7 @@ def add(ctx, dsid):
               help="Set the date when corrections were submitted.")
 @click.pass_obj
 def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
-           decision, comment, reference, record,
+           decision, record_status, sumexpr_status, comment, reference, record,
            corrections, corr_date):
     """Update informations about a dataset."""
 
@@ -666,6 +678,11 @@ def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
         decision = FlyBaseEvaluation.UNKNOWN
     if decision:
         ds.flybase.decide(decision, comment)
+
+    if record_status:
+        ds.flybase.update_record(record_status)
+    if sumexpr_status:
+        ds.flybase.sumexpr_status = sumexpr_status
 
     if reference:
         ds.flybase.reference = reference
