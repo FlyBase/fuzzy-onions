@@ -102,8 +102,9 @@ class CellTypeAvailability(JsonEnum):
 
     UNKNOWN = 0,
     INEXISTENT = 1,
-    UPSTREAM = 2,
-    AVAILABLE = 3
+    INPUT_ONLY = 2,
+    UPSTREAM = 3,
+    AVAILABLE = 4
 
 
 class DatasetTracker(object):
@@ -451,6 +452,15 @@ class CellTypesData(object):
             self._status = CellTypeAvailability.UPSTREAM
 
     @property
+    def is_input_only(self):
+        return self._status == CellTypeAvailability.INPUT_ONLY
+
+    @is_input_only.setter
+    def is_input_only(self, value):
+        if value:
+            self._status = CellTypeAvailability.INPUT_ONLY
+
+    @property
     def date_requested(self):
         """When have annotations been requested from upstream?"""
 
@@ -477,6 +487,8 @@ class CellTypesData(object):
             return "available"
         elif self._status == CellTypeAvailability.INEXISTENT:
             return "inexistent"
+        elif self._status == CellTypeAvailability.INPUT_ONLY:
+            return "input types only"
         elif self._requested is None:
             return "to be requested from upstream"
         else:
@@ -492,6 +504,8 @@ class CellTypesData(object):
         elif self._status == CellTypeAvailability.AVAILABLE:
             d['exist'] = 'yes'
             d['available'] = 'yes'
+        elif self._status == CellTypeAvailability.INPUT_ONLY:
+            d['exist'] = 'input-only'
         if self._requested:
             d['requested'] = self._requested.strftime('%Y-%m-%d')
         return d
@@ -509,6 +523,8 @@ class CellTypesData(object):
             new._status = CellTypeAvailability.UPSTREAM
         elif exist == 'no':
             new._status = CellTypeAvailability.INEXISTENT
+        elif exist == 'input-only':
+            new._status = CellTypeAvailability.INPUT_ONLY
         else:
             exist = CellTypeAvailability.UNKNOWN
 
@@ -620,7 +636,7 @@ def add(ctx, dsid):
 @tracker.command()
 @click.argument('dsid')
 @click.option('--cell-types',
-              type=click.Choice(['no', 'yes', 'to-request', 'requested']),
+              type=click.Choice(['no', 'yes', 'input-only', 'to-request', 'requested']),
               help="Update what’s known about cell type annotations.")
 @click.pass_obj
 def update(ctx, dsid, cell_types):
@@ -634,6 +650,8 @@ def update(ctx, dsid, cell_types):
         ds.cell_types.exists = False
     elif cell_types == 'yes':
         ds.cell_types.is_available = True
+    elif cell_types == 'input-only':
+        ds.cell_types.is_input_only = True
     elif cell_types == 'to-request':
         ds.cell_types.set_to_request()
     elif cell_types == 'requested':
