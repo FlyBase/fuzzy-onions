@@ -562,7 +562,7 @@ def show(ctx, dsid):
 
     ds = ctx.tracker.get_dataset(dsid)
     if not ds:
-        print(f"Dataset {dsid} not found.")
+        raise click.ClickException("Invalid Dataset ID.")
 
     print(f"Dataset ID: {ds.scea.identifier}")
     print(f"SCEA status: {ds.scea.status}")
