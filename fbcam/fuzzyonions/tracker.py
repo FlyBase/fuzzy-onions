@@ -594,6 +594,7 @@ def show(ctx, dsid):
     print(f"SCEA status: {ds.scea.status}")
     print(f"Cell type annotations: {ds.cell_types.to_string()}")
 
+    print(f"FlyBase reference: {ds.flybase.reference}")
     print(f"FlyBase evaluation: {ds.flybase.decision}", end='')
     if ds.flybase.comment:
         print(f" ({ds.flybase.comment})", end='')
@@ -638,8 +639,15 @@ def add(ctx, dsid):
 @click.option('--cell-types',
               type=click.Choice(['no', 'yes', 'input-only', 'to-request', 'requested']),
               help="Update what’s known about cell type annotations.")
+@click.option('--decide', 'decision',
+              type=click.Choice(FlyBaseEvaluation.values()),
+              callback=FlyBaseEvaluation.from_click,
+              help="Set the FlyBase decision status.")
+@click.option('--comment', help="Set the comment from the FlyBase curator.")
+@click.option('--reference', help="Set the associated FlyBase reference.")
+@click.option('--record', help="Set the name of the FlyBase record.")
 @click.pass_obj
-def update(ctx, dsid, cell_types):
+def update(ctx, dsid, cell_types, decision, comment, reference, record):
     """Update informations about a dataset."""
 
     ds = ctx.tracker.get_dataset(dsid)
@@ -656,6 +664,16 @@ def update(ctx, dsid, cell_types):
         ds.cell_types.set_to_request()
     elif cell_types == 'requested':
         ds.cell_types.set_requested()
+
+    if comment is not None and decision is None:
+        decision = FlyBaseEvaluation.UNKNOWN
+    if decision is not None:
+        ds.flybase.decide(decision, comment)
+
+    if reference:
+        ds.flybase.reference = reference
+    if record:
+        ds.flybase.record_name = record
 
     if not ctx.in_tracker_shell:
         ctx.tracker.save()
