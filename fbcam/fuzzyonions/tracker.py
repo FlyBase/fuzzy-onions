@@ -104,7 +104,8 @@ class CellTypeAvailability(JsonEnum):
     INEXISTENT = 1,
     INPUT_ONLY = 2,
     UPSTREAM = 3,
-    AVAILABLE = 4
+    OBTAINED = 4,
+    AVAILABLE = 5
 
 
 class DatasetTracker(object):
@@ -422,49 +423,20 @@ class CellTypesData(object):
     def status(self):
         return self._status
 
-    @property
-    def exists(self):
-        """Have cell types been inferred by the authors?"""
-
-        return self._status in [CellTypeAvailability.UPSTREAM,
-                                CellTypeAvailability.AVAILABLE]
-
-    @exists.setter
-    def exists(self, value):
-        if value:
-            if self._status != CellTypeAvailability.AVAILABLE:
-                self._status = CellTypeAvailability.UPSTREAM
-        else:
-            self._status = CellTypeAvailability.INEXISTENT
-
-    @property
-    def is_available(self):
-        """Are inferred cell types available at the SCEA?"""
-
-        return self._status == CellTypeAvailability.AVAILABLE
-
-    @is_available.setter
-    def is_available(self, value):
-        if value:
-            self._status = CellTypeAvailability.AVAILABLE
-        elif self._status == CellTypeAvailability.AVAILABLE:
-            # Downgrade to only available upstream
-            self._status = CellTypeAvailability.UPSTREAM
-
-    @property
-    def is_input_only(self):
-        return self._status == CellTypeAvailability.INPUT_ONLY
-
-    @is_input_only.setter
-    def is_input_only(self, value):
-        if value:
-            self._status = CellTypeAvailability.INPUT_ONLY
+    @status.setter
+    def status(self, value):
+        self._status = value
 
     @property
     def date_requested(self):
         """When have annotations been requested from upstream?"""
 
         return self._requested
+
+    @property
+    def need_request(self):
+        return (self._status == CellTypeAvailability.UPSTREAM and
+                self._requested is None)
 
     def set_to_request(self):
         """Marks that cell types are to be requested."""
@@ -495,17 +467,7 @@ class CellTypesData(object):
             return f"requested on {self._requested:%Y-%m-%d}"
 
     def to_dict(self):
-        d = {}
-        if self._status == CellTypeAvailability.INEXISTENT:
-            d['exist'] = 'no'
-        elif self._status == CellTypeAvailability.UPSTREAM:
-            d['exist'] = 'yes'
-            d['available'] = 'no'
-        elif self._status == CellTypeAvailability.AVAILABLE:
-            d['exist'] = 'yes'
-            d['available'] = 'yes'
-        elif self._status == CellTypeAvailability.INPUT_ONLY:
-            d['exist'] = 'input-only'
+        d = { 'status': str(self._status) }
         if self._requested:
             d['requested'] = self._requested.strftime('%Y-%m-%d')
         return d
@@ -513,21 +475,7 @@ class CellTypesData(object):
     @classmethod
     def from_dict(cls, data):
         new = cls()
-
-        avail = data.get('available')
-        exist = data.get('exist')
-
-        if avail == 'yes':
-            new._status = CellTypeAvailability.AVAILABLE
-        elif exist == 'yes':
-            new._status = CellTypeAvailability.UPSTREAM
-        elif exist == 'no':
-            new._status = CellTypeAvailability.INEXISTENT
-        elif exist == 'input-only':
-            new._status = CellTypeAvailability.INPUT_ONLY
-        else:
-            exist = CellTypeAvailability.UNKNOWN
-
+        new._status = CellTypeAvailability.from_str(data.get('status', 'unknown'))
         if 'requested' in data:
             new._requested = datetime.strptime(data['requested'], '%Y-%m-%d')
 
@@ -637,7 +585,8 @@ def add(ctx, dsid):
 @tracker.command()
 @click.argument('dsid')
 @click.option('--cell-types',
-              type=click.Choice(['no', 'yes', 'input-only', 'to-request', 'requested']),
+              type=click.Choice(CellTypeAvailability.values()),
+              callback=CellTypeAvailability.from_click,
               help="Update what’s known about cell type annotations.")
 @click.option('--decide', 'decision',
               type=click.Choice(FlyBaseEvaluation.values()),
@@ -654,20 +603,12 @@ def update(ctx, dsid, cell_types, decision, comment, reference, record):
     if not ds:
         raise click.ClickException("Invalid Dataset ID.")
 
-    if cell_types == 'no':
-        ds.cell_types.exists = False
-    elif cell_types == 'yes':
-        ds.cell_types.is_available = True
-    elif cell_types == 'input-only':
-        ds.cell_types.is_input_only = True
-    elif cell_types == 'to-request':
-        ds.cell_types.set_to_request()
-    elif cell_types == 'requested':
-        ds.cell_types.set_requested()
+    if cell_types:
+        ds.cell_types.status = cell_types
 
     if comment is not None and decision is None:
         decision = FlyBaseEvaluation.UNKNOWN
-    if decision is not None:
+    if decision:
         ds.flybase.decide(decision, comment)
 
     if reference:
