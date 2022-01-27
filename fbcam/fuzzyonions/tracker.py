@@ -429,6 +429,7 @@ class CellTypesData(object):
     def __init__(self):
         self._status = CellTypeAvailability.UNKNOWN
         self._requested = None
+        self._obtained = None
 
     @property
     def status(self):
@@ -444,6 +445,11 @@ class CellTypesData(object):
 
         return self._requested
 
+    def date_obtained(self):
+        """When have annotations been obtained from upstream?"""
+
+        return self._obtained
+
     @property
     def need_request(self):
         return (self._status == CellTypeAvailability.UPSTREAM and
@@ -454,12 +460,20 @@ class CellTypesData(object):
 
         self._status = CellTypeAvailability.UPSTREAM
         self._requested = None
+        self._obtained = None
 
     def set_requested(self, date=datetime.today()):
         """Marks that cell types have been requested."""
 
         self._status = CellTypeAvailability.UPSTREAM
         self._requested = date
+        self._obtained = None
+
+    def set_obtained(self, date=datetime.today()):
+        """Marks that cell types have been obtained."""
+
+        self._status = CellTypeAvailability.OBTAINED
+        self._obtained = date
 
     def to_string(self):
         """Gets a one-line human-readable representation."""
@@ -472,6 +486,8 @@ class CellTypesData(object):
             return "inexistent"
         elif self._status == CellTypeAvailability.INPUT_ONLY:
             return "input types only"
+        elif self._status == CellTypeAvailability.OBTAINED:
+            return f"obtained on {self._obtained:%Y-%m-%d}"
         elif self._requested is None:
             return "to be requested from upstream"
         else:
@@ -481,6 +497,8 @@ class CellTypesData(object):
         d = { 'status': str(self._status) }
         if self._requested:
             d['requested'] = self._requested.strftime('%Y-%m-%d')
+        if self._obtained:
+            d['obtained'] = self._obtained.strftime('%Y-%m-%d')
         return d
 
     @classmethod
@@ -489,6 +507,8 @@ class CellTypesData(object):
         new._status = CellTypeAvailability.from_str(data.get('status', 'unknown'))
         if 'requested' in data:
             new._requested = datetime.strptime(data['requested'], '%Y-%m-%d')
+        if 'obtained' in data:
+            new._obtained = datetime.strptime(data['obtained'], '%Y-%m-%d')
 
         return new
 
@@ -614,6 +634,10 @@ def add(ctx, dsid):
               type=click.Choice(CellTypeAvailability.values()),
               callback=CellTypeAvailability.from_click,
               help="Update what’s known about cell type annotations.")
+@click.option('--set-request-date', 'ct_request_date', type=click.DateTime(),
+              help="Set the date when cell types were requested.")
+@click.option('--set-obtained-date', 'ct_reply_date', type=click.DateTime(),
+              help="Set the date when cell types were obtained.")
 @click.option('--decide', 'decision',
               type=click.Choice(FlyBaseEvaluation.values()),
               callback=FlyBaseEvaluation.from_click,
@@ -622,7 +646,8 @@ def add(ctx, dsid):
 @click.option('--reference', help="Set the associated FlyBase reference.")
 @click.option('--record', help="Set the name of the FlyBase record.")
 @click.pass_obj
-def update(ctx, dsid, cell_types, decision, comment, reference, record):
+def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
+           decision, comment, reference, record):
     """Update informations about a dataset."""
 
     ds = ctx.tracker.get_dataset(dsid)
@@ -631,6 +656,11 @@ def update(ctx, dsid, cell_types, decision, comment, reference, record):
 
     if cell_types:
         ds.cell_types.status = cell_types
+
+    if ct_reply_date:
+        ds.cell_types.set_obtained(date=ct_reply_date)
+    elif ct_request_date:
+        ds.cell_types.set_requested(date=ct_reply_date)
 
     if comment is not None and decision is None:
         decision = FlyBaseEvaluation.UNKNOWN
