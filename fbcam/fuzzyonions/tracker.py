@@ -606,21 +606,6 @@ def show(ctx, dsid):
 
 
 @tracker.command()
-@click.argument('dsid')
-@click.pass_obj
-def accept(ctx, dsid):
-    """Mark a dataset as accepted for curation in FlyBase."""
-
-    ds = ctx.tracker.get_dataset(dsid)
-    if not ds:
-        raise click.ClickException("Invalid Dataset ID.")
-
-    ds.flybase.decide(FlyBaseEvaluation.INCLUDE)
-    if not ctx.in_tracker_shell:
-        ctx.tracker.save()
-
-
-@tracker.command()
 @click.pass_obj
 def add(ctx, dsid):
     """Add a Dataset ID to track."""
