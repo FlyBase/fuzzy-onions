@@ -390,9 +390,17 @@ class CorrectionData():
     def status(self):
         return self._status
 
+    @status.setter
+    def status(self, value):
+        self._status = value
+
     @property
     def submitted(self):
         return self._submitted
+
+    def set_submitted(self, date=datetime.today()):
+        self._status = CorrectionStatus.DONE
+        self._submitted = date
 
     def to_string(self):
         if self.status == CorrectionStatus.NOT_NEEDED:
@@ -630,9 +638,16 @@ def add(ctx, dsid):
 @click.option('--comment', help="Set the comment from the FlyBase curator.")
 @click.option('--reference', help="Set the associated FlyBase reference.")
 @click.option('--record', help="Set the name of the FlyBase record.")
+@click.option('--corrections',
+              type=click.Choice(CorrectionStatus.values()),
+              callback=CorrectionStatus.from_click,
+              help="Set the status of correction sets.")
+@click.option('--set-correction-date', 'corr_date', type=click.DateTime(),
+              help="Set the date when corrections were submitted.")
 @click.pass_obj
 def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
-           decision, comment, reference, record):
+           decision, comment, reference, record,
+           corrections, corr_date):
     """Update informations about a dataset."""
 
     ds = ctx.tracker.get_dataset(dsid)
@@ -656,6 +671,11 @@ def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
         ds.flybase.reference = reference
     if record:
         ds.flybase.record_name = record
+
+    if corr_date:
+        ds.flybase.corrections.set_submitted(date=corr_date)
+    elif corrections:
+        ds.flybase.corrections.status = corrections
 
     if not ctx.in_tracker_shell:
         ctx.tracker.save()
