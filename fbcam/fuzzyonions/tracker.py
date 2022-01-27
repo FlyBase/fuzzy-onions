@@ -324,6 +324,17 @@ class FlyBaseData(object):
     def corrections(self):
         return self._corrections
 
+    def get_status_string(self):
+        if self.decision == FlyBaseEvaluation.UNKNOWN:
+            return "undecided"
+        elif self.decision in [FlyBaseEvaluation.EXCLUDE,
+                                FlyBaseEvaluation.HOLD]:
+            return str(self.decision)
+        elif self.record_status == FlyBaseRecordStatus.UNKNOWN:
+            return "todo"
+        else:
+            return str(self.record_status)
+
     def to_dict(self):
         d = {}
         if self._reference:
@@ -385,15 +396,15 @@ class CorrectionData():
 
     def to_string(self):
         if self.status == CorrectionStatus.NOT_NEEDED:
-            return "no corrections needed"
+            return "none needed"
         elif self.status == CorrectionStatus.TODO:
-            return "corrections needed"
+            return "todo"
         elif self.status == CorrectionStatus.DONE:
             dt = self.submitted
             if dt:
-                return f"corrections submitted on {dt:%Y-%m-%d}"
+                return f"submitted on {dt:%Y-%m-%d}"
             else:
-                return "corrections done, not submitted"
+                return "unsubmitted"
         else:
             return "unknown"
 
@@ -496,6 +507,10 @@ def tracker(ctx):
 
 
 @tracker.command('list')
+@click.option('--long', '-l', is_flag=True, default=False,
+              help="Show more details than just the dataset ID.")
+@click.option('--tab', '-t', is_flag=True, default=False,
+              help="Use tab-separated columns.")
 @click.option('--scea-status', type=click.Choice(SceaStatus.values()),
               callback=SceaStatus.from_click,
               help="Filter datasets on their SCEA status.")
@@ -509,8 +524,14 @@ def tracker(ctx):
               callback=CellTypeAvailability.from_click,
               help="Filter datasets on cell types availability.")
 @click.pass_obj
-def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status, ct_status):
+def list_tracked_datasets(ctx, long, tab, scea_status, fb_decision, fb_status,
+                          ct_status):
     """List tracked datasets."""
+
+    if long:
+        print("Dataset ID       EBI Status       FlyBase Status   Cell Types                       Corrections")
+    elif tab:
+        print("Dataset ID\tEBI Status\tFlyBase Status\tCell Types\tCorrections")
 
     for ds in ctx.tracker.datasets:
         if scea_status and ds.scea.status != scea_status:
@@ -525,7 +546,12 @@ def list_tracked_datasets(ctx, scea_status, fb_decision, fb_status, ct_status):
         if ct_status and ds.cell_types.status != ct_status:
             continue
 
-        print(ds.scea.identifier)
+        if long:
+            print(f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string():32} {ds.flybase.corrections.to_string()}")
+        elif tab:
+            print(f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}\t{ds.flybase.corrections.to_string()}")
+        else:
+            print(ds.scea.identifier)
 
 
 @tracker.command()
@@ -553,7 +579,7 @@ def show(ctx, dsid):
             print(f" ({ds.flybase.record_name})", end='')
         print()
 
-        if ds.cell_types.is_available:
+        if ds.cell_types.status == CellTypeAvailability.AVAILABLE:
             print(f"Summarised expression table: {ds.flybase.sumexpr_status}")
 
     print(f"Corrections: {ds.flybase.corrections.to_string()}")
