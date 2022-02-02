@@ -213,7 +213,11 @@ class CuratedDataset(object):
                 with_cell_types = True
 
         generator = builder.get_generator(template='pub_mini')
-        generator.fill_template()
+        fills = {
+            'P22': 'TODO: FBrfXXXXXXX',
+            'P2': 'TODO: <Journal abbreviation>'
+        }
+        generator.fill_template(fills)
 
         generator = builder.get_generator(template='dataset/project')
         fills = {
@@ -223,7 +227,12 @@ class CuratedDataset(object):
             'LC99a': self._spec['dataset_id'],
             'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets',
             'LC7a': 'The EMBL-EBI\' Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.',
-            'LC8c': 'TODO: [Name of the research group](URL of their website)'
+            'LC8c': 'TODO: [Name of the research group](URL of their website)',
+            'LC13c': 'TODO: [GO terms for biological processes studied]',
+            'LC11m':' TODO: <FBcv terms from \'study design\' (FBcv:0003130)>',
+            'LC6b': 'TODO: <How the biological material was processed>',
+            'LC11c': 'TODO: <How the mRNA libraries were sequenced>',
+            'LC11e': 'TODO: <How the sequencing data were analysed>'
             }
         if with_cell_types:
             fills['LC6a'] = 'TODO: A characterization of the diverse populations of cells in...'
@@ -243,8 +252,12 @@ class CuratedDataset(object):
                 'LC2b': 'isolated cells ; FBcv:0003047',
                 'LC3': self._spec['symbol'],
                 'LC4g': f'<e><t>{stage}<a><s><note>',
-                'LC11m': 'multi-individual sample ; FBcv:0003141\n' +
-                         'cell isolation ; FBcv:0003170'
+                'LC11m': 'TODO: <FBcv terms from \'biosample attribute\' (FBcv:0003137)>',
+                'LC4h': 'TODO: [as needed]',
+                'LC4f': 'TODO: [as needed]',
+                'LC12a': 'TODO: [as needed]',
+                'LC12b': 'TODO: [as needed]',
+                'LC11a': 'TODO: <How the sample was obtained>'
                 }
             generator.fill_template(fills)
 
@@ -256,7 +269,10 @@ class CuratedDataset(object):
                 'LC3': self._spec['symbol'],
                 'LC14a': symbol,
                 'LC6e': sample['reads'],
-                'LC6f': 'reads'
+                'LC6f': 'reads',
+                'LC14d': 'TODO: [LC1a symbol of technical reference assay, if relevant]',
+                'LC14e': 'TODO: [LC1a symbol of biological reference assay, if relevant]',
+                'LC11m': 'TODO: <FBcv terms from \'assay method\' (FBcv:0003208)>'
                 }
             generator.fill_template(fills)
 
