@@ -60,7 +60,6 @@ TEMPLATES = {
             ('LC7a', None),
             ('LC99a', None),
             ('LC99b', None),
-            ('LC99c', None),
             ('LC8c', None),
             ('LC10', None)
             ]
@@ -82,8 +81,6 @@ TEMPLATES = {
             ('LC12a', None),
             ('LC12b', None),
             ('LC6d', 'N'),
-            ('LC6e', None),
-            ('LC6f', None),
             ('LC11m', None),
             ('LC11a', None),
             ('LC10', None)

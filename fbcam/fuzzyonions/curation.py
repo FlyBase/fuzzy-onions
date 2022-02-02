@@ -207,16 +207,28 @@ class CuratedDataset(object):
         if not self.extracted:
             self.extract()
 
+        with_cell_types = False
+        for sample in self._spec['samples']:
+            if len(sample['cell_types']):
+                with_cell_types = True
+
         generator = builder.get_generator(template='pub_mini')
         generator.fill_template()
 
         generator = builder.get_generator(template='dataset/project')
         fills = {
             'LC1a': self._spec['symbol'],
+            'LC6g': 'TODO: Single-cell RNA-seq study of <tissue and stage> [upon condition]',
             'LC2b': 'transcriptome ; FBcv:0003034',
             'LC99a': self._spec['dataset_id'],
-            'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets'
+            'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets',
+            'LC7a': 'The EMBL-EBI\' Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.',
+            'LC8c': 'TODO: [Name of the research group](URL of their website)'
             }
+        if with_cell_types:
+            fills['LC6a'] = 'TODO: A characterization of the diverse populations of cells in...'
+        else:
+            fills['LC6a'] = 'TODO: A single-cell transcriptomic study of the diverse populations from...'
         generator.fill_template(fills)
 
         for sample in self._spec['samples']:
@@ -227,7 +239,7 @@ class CuratedDataset(object):
             generator = builder.get_generator(template='dataset/biosample')
             fills = {
                 'LC1a': symbol,
-                'LC6g': title,
+                'LC6g': title[0].upper() + title[1:],
                 'LC2b': 'isolated cells ; FBcv:0003047',
                 'LC3': self._spec['symbol'],
                 'LC4g': f'<e><t>{stage}<a><s><note>',
