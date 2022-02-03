@@ -55,6 +55,17 @@ class CuratedDataset(object):
         return self._spec.get('excluded_cell_types', [])
 
     @property
+    def simplified_cell_types(self):
+        """Gets a table of simplified cell type names.
+        
+        Gets a dictionary associating a FBbt cell type name to a
+        simplified cell type name to be used when generating
+        cluster symbols.
+        """
+
+        return self._spec.get('simplified_cell_types', {})
+
+    @property
     def extracted(self):
         """Indicates whether data extraction has been performed."""
 
@@ -166,7 +177,7 @@ class CuratedDataset(object):
                 # Build the result dataframe
                 d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
                 d['celltype'] = cell_type
-                d['sample'] = self._get_cluster_symbol(sample, cell_type)
+                d['sample'] = self._get_cluster_symbol(sample, self._get_simplified_cell_type(cell_type))
                 if result is not None:
                     result = result.append(d)
                 else:
@@ -290,9 +301,10 @@ class CuratedDataset(object):
 
             for cell_type, n in sample['cell_types'].items():
                 generator = builder.get_generator(template='dataset/subresult')
+                simplified_cell_type = self._get_simplified_cell_type(cell_type)
                 fills = {
-                    'LC1a': self._get_cluster_symbol(sample, cell_type),
-                    'LC6g': f'Clustering analysis of {title}, {cell_type}s cluster',
+                    'LC1a': self._get_cluster_symbol(sample, simplified_cell_type),
+                    'LC6g': f'Clustering analysis of {title}, {simplified_cell_type}s cluster',
                     'LC2b': 'transcriptional cell cluster ; FBcv:0009003',
                     'LC3': symbol + '_seq_clustering',
                     'LC4g': f'<e><t>{stage}<a>{cell_type}<s><note>',
@@ -363,6 +375,9 @@ class CuratedDataset(object):
                 subset = subset.loc[subset[columns[i]] == selectors[i]]
 
         return subset
+
+    def _get_simplified_cell_type(self, cell_type):
+        return self.simplified_cell_types.get(cell_type, cell_type)
 
 
 class CuratedDatasetFactory(object):
