@@ -333,15 +333,9 @@ class FlyBaseData(object):
         return self._corrections
 
     def get_status_string(self):
-        if self.decision == FlyBaseEvaluation.UNKNOWN:
-            return "undecided"
-        elif self.decision in [FlyBaseEvaluation.EXCLUDE,
-                                FlyBaseEvaluation.HOLD]:
-            return str(self.decision)
-        elif self.record_status == FlyBaseRecordStatus.UNKNOWN:
-            return "todo"
-        else:
-            return str(self.record_status)
+        d = str(self.decision)[0].upper()
+        s = str(self.record_status)
+        return f"{d}:{s}"
 
     def to_dict(self):
         d = {}
