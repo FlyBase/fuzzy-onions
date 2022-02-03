@@ -231,6 +231,10 @@ class SceaData(object):
     def upstream_identifier(self):
         return self._upstream_id
 
+    @upstream_identifier.setter
+    def upstream_identifier(self, value):
+        self._upstream_id = value
+
     def to_dict(self):
         d = { 'dataset_id': self._dataset_id }
         if self._upstream_id:
@@ -597,6 +601,8 @@ def show(ctx, dsid):
         raise click.ClickException("Invalid Dataset ID.")
 
     print(f"Dataset ID: {ds.scea.identifier}")
+    if ds.scea.upstream_identifier:
+        print(f"Upstream ID: {ds.scea.upstream_identifier}")
     print(f"SCEA status: {ds.scea.status}")
     print(f"Cell type annotations: {ds.cell_types.to_string()}")
 
@@ -627,6 +633,7 @@ def add(ctx, dsid):
 
 @tracker.command()
 @click.argument('dsid')
+@click.option('--upstream-id', help="Set the upstream identifier.")
 @click.option('--cell-types',
               type=click.Choice(CellTypeAvailability.values()),
               callback=CellTypeAvailability.from_click,
@@ -657,7 +664,7 @@ def add(ctx, dsid):
 @click.option('--set-correction-date', 'corr_date', type=click.DateTime(),
               help="Set the date when corrections were submitted.")
 @click.pass_obj
-def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
+def update(ctx, dsid, upstream_id, cell_types, ct_request_date, ct_reply_date,
            decision, record_status, sumexpr_status, comment, reference, record,
            corrections, corr_date):
     """Update informations about a dataset."""
@@ -665,6 +672,9 @@ def update(ctx, dsid, cell_types, ct_request_date, ct_reply_date,
     ds = ctx.tracker.get_dataset(dsid)
     if not ds:
         raise click.ClickException("Invalid Dataset ID.")
+
+    if upstream_id:
+        ds.scea.upstream_identifier = upstream_id
 
     if cell_types:
         ds.cell_types.status = cell_types
