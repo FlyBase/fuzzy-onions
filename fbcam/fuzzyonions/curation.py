@@ -316,8 +316,8 @@ class CuratedDataset(object):
             logging.warn("No corrections found in spec")
             return
 
-        self._ds.apply_corrections(self._spec['corrections'], only_new=True, target='scea')
-        self._ds.experiment_design.to_csv(new_expd_file, sep='\t')
+        if self._ds.apply_corrections(self._spec['corrections'], only_new=True, target='scea') > 0:
+            self._ds.experiment_design.to_csv(new_expd_file, sep='\t')
 
         cell_type_column = self.cell_type_column
         if cell_type_column is None:

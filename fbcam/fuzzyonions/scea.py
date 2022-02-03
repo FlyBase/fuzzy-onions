@@ -189,6 +189,7 @@ class Dataset(object):
         """Update the experiment design table with custom corrections."""
 
         expd = self.experiment_design
+        n = 0
         for correction in corrections:
             if 'target' in correction and correction['target'] != target:
                 continue
@@ -208,6 +209,10 @@ class Dataset(object):
                 if len(new) == 0:
                     new = pandas.NA
                 expd.loc[expd[src] == old, dest] = new
+
+            n += 1
+
+        return n
 
     def _read_expression_matrix(self, raw=True):
         dt = DataType.RAW_EXPRESSION_DATA
