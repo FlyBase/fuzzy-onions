@@ -134,6 +134,136 @@ class CuratedDataset(object):
 
         self.extracted = True
 
+    def summarise_expression_stream(self):
+        """Generates a summarised expression table (stream version).
+        
+        This method produces the summarised expression table by
+        "manually" parsing the normalised expression table provided
+        by the SCEA and doing the necessary computations on the fly.
+        
+        This is required for datasets with an expression table that
+        is too big to fit entirely in memory.
+        """
+
+        if 'corrections' in self._spec:
+            self._ds.apply_corrections(self._spec['corrections'])
+
+        # Pre-processing
+        # We prepare a data structure for each cluster in each sample.
+        # That structure will be filled as we read the expression table
+        # below. This allows to read the table only once.
+
+        clusters = []
+        clusters_by_cell_id = {}
+        for sample in self._spec['samples']:
+            subset = self._get_sample_subset(sample)
+
+            # Get all cell types present in this sample
+            cell_types = subset.loc[:, self.cell_type_column].dropna().unique()
+
+            for cell_type in [c for c in cell_types if c not in self.excluded_cell_types]:
+                simplified_cell_type = self._get_simplified_cell_type(cell_type)
+
+                # Get the cells for this cluster in this sample
+                ct_subset = subset.loc[subset[self.cell_type_column] == cell_type]
+
+                # Fill the cluster structure
+                cluster = {
+                    'total_cells': len(ct_subset),
+                    'symbol': self._get_cluster_symbol(sample, simplified_cell_type),
+                    'cell_type': cell_type,
+                    'expression': {},
+                    'presence': {}
+                    }
+                clusters.append(cluster)
+
+                # Allow for fast look up of which cluster a cell belongs to
+                for cell_id in ct_subset['Assay']:
+                    clusters_by_cell_id[cell_id] = cluster
+
+        logging.info("Preprocessing complete.")
+
+        # Processing of the expression table
+
+        cols = self._ds.get_expression_matrix_cells(raw=False)
+        rows = self._ds.get_expression_matrix_genes(raw=False)
+        raw_file = self._ds.get_expression_matrix_fullname(raw=False)
+        with open(raw_file, 'r') as f:
+            header = f.readline().rstrip()
+            if not header.startswith('%%MatrixMarket'):
+                raise Exception("Invalid MatrixMarket header.")
+
+            # Skip optional comments at the beginning
+            comment = True
+            while comment:
+                line = f.readline()
+                if line[0] != '%':
+                    comment = False
+
+            # Check the dimensions of the table
+            n_rows, n_cols, n_cells = line.strip().split()
+            n_rows = int(n_rows)
+            n_cols = int(n_cols)
+            n_cells = int(n_cells)
+            if n_rows != len(rows):
+                raise Exception(f"Invalid number of rows (expected: {len(rows)}, got: {n_rows})")
+            if n_cols != len(cols):
+                raise Exception(f"Invalid number of columns (expected: {len(cols)}, got: {n_cols})")
+            one_percent = int(n_cells / 100)
+            line_number = 0
+            complete = 0
+
+            # Read the actual contents of the table
+            for line in f:
+                gid, cid, value = line.rstrip().split()
+                gid = int(gid) - 1
+                cid = int(cid) - 1
+                value = float(value)
+
+                line_number += 1
+                if line_number % one_percent == 0:
+                    complete += 1
+                    logging.info(f"Reading expression table: {complete}% complete...")
+
+                fbgn = rows[gid]
+                cell_id = cols[cid]
+                if cell_id not in clusters_by_cell_id:
+                    continue
+
+                cluster = clusters_by_cell_id[cell_id]
+                cluster['expression'][fbgn] = cluster['expression'].get(fbgn, 0) + value
+                cluster['presence'][fbgn] = cluster['presence'].get(fbgn, 0) + 1
+
+        logging.info("Processing complete.")
+
+        # Post-processing
+        # We have all the values we need in the cluster structures.
+        # Now we just need to assemble a DataFrame with them.
+
+        result = None
+        for cluster in clusters:
+            n = cluster['total_cells']
+            d = pandas.DataFrame(data={'expression': pandas.Series(data=cluster['expression']),
+                                       'presence': pandas.Series(data=cluster['presence'])
+                                       })
+            # We compute mean expression for each gene...
+            d['mean_expr'] = d['expression'] / d['presence']
+            # and 'extent of expression'
+            d['spread'] = d['presence'] / n
+            d['cell_type'] = cluster['cell_type']
+            d['symbol'] = cluster['symbol']
+
+            d = d.drop(columns=['expression', 'presence'])
+
+            if result is not None:
+                result = result.append(d)
+            else:
+                result = d
+
+        logging.info("Post-processing complete.")
+
+        return result
+
     def summarise_expression(self):
         """Generates a summarised expression table."""
 
