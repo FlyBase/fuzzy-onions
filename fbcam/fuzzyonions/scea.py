@@ -185,6 +185,26 @@ class Dataset(object):
 
         return self._norm_exp_matrix
 
+    def get_expression_matrix_cells(self, raw=True):
+        """Gets the cell identifiers from the expression matrix."""
+
+        fullname = self.get_expression_matrix_fullname(raw)
+
+        with open(f'{fullname}_cols', 'r') as f:
+            cols = [line.rstrip() for line in f]
+
+        return cols
+
+    def get_expression_matrix_genes(self, raw=True):
+        """Gets the gene identifiers from the expression matrix."""
+
+        fullname = self.get_expression_matrix_fullname(raw)
+
+        with open(f'{fullname}_rows', 'r') as f:
+            rows = [line.split()[0] for line in f]
+
+        return rows
+
     def apply_corrections(self, corrections, only_new=False, target='internal'):
         """Update the experiment design table with custom corrections."""
 
@@ -215,12 +235,7 @@ class Dataset(object):
         return n
 
     def _read_expression_matrix(self, raw=True):
-        dt = DataType.RAW_EXPRESSION_DATA
-        if not raw:
-            dt = DataType.NORMALISED_EXPRESSION_DATA
-
-        basename = Dataset.FILES[dt].format(self._id)
-        fullname = os.path.join(self._directory, basename)
+        fullname = self.get_expression_matrix_fullname(raw)
 
         cols = pandas.read_table(f'{fullname}_cols', header=None,
                                  names=['cells'])
@@ -233,6 +248,18 @@ class Dataset(object):
                                                    index=rows['genes'])
 
         return matrix
+
+    def get_expression_matrix_fullname(self, raw=True):
+        """Gets the full pathname to the expression matrix file."""
+
+        dt = DataType.RAW_EXPRESSION_DATA
+        if not raw:
+            dt = DataType.NORMALISED_EXPRESSION_DATA
+
+        basename = Dataset.FILES[dt].format(self._id)
+        fullname = os.path.join(self._directory, basename)
+
+        return fullname
 
 
 class Downloader(object):
