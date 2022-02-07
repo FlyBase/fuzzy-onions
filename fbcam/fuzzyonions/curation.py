@@ -24,6 +24,8 @@ import logging
 import numpy
 import pandas
 
+from fbcam.fuzzyonions.matrixmarket import MatrixMarketFile
+
 
 class CuratedDataset(object):
     """Represents a scRNAseq dataset with associated curation data."""
@@ -185,52 +187,15 @@ class CuratedDataset(object):
 
         # Processing of the expression table
 
-        cols = self._ds.get_expression_matrix_cells(raw=False)
-        rows = self._ds.get_expression_matrix_genes(raw=False)
-        raw_file = self._ds.get_expression_matrix_fullname(raw=False)
-        with open(raw_file, 'r') as f:
-            header = f.readline().rstrip()
-            if not header.startswith('%%MatrixMarket'):
-                raise Exception("Invalid MatrixMarket header.")
+        matrix_file = self._ds.get_expression_matrix_fullname(raw=False)
+        with MatrixMarketFile(matrix_file) as mmf:
+            mmf.set_progress_callback(lambda p: logging.info(f"Reading expression table: {p}% complete..."))
+            for fbgn, cell, value in mmf:
 
-            # Skip optional comments at the beginning
-            comment = True
-            while comment:
-                line = f.readline()
-                if line[0] != '%':
-                    comment = False
-
-            # Check the dimensions of the table
-            n_rows, n_cols, n_cells = line.strip().split()
-            n_rows = int(n_rows)
-            n_cols = int(n_cols)
-            n_cells = int(n_cells)
-            if n_rows != len(rows):
-                raise Exception(f"Invalid number of rows (expected: {len(rows)}, got: {n_rows})")
-            if n_cols != len(cols):
-                raise Exception(f"Invalid number of columns (expected: {len(cols)}, got: {n_cols})")
-            one_percent = int(n_cells / 100)
-            line_number = 0
-            complete = 0
-
-            # Read the actual contents of the table
-            for line in f:
-                gid, cid, value = line.rstrip().split()
-                gid = int(gid) - 1
-                cid = int(cid) - 1
-                value = float(value)
-
-                line_number += 1
-                if line_number % one_percent == 0:
-                    complete += 1
-                    logging.info(f"Reading expression table: {complete}% complete...")
-
-                fbgn = rows[gid]
-                cell_id = cols[cid]
-                if cell_id not in clusters_by_cell_id:
+                if cell not in clusters_by_cell_id:
                     continue
 
-                cluster = clusters_by_cell_id[cell_id]
+                cluster = clusters_by_cell_id[cell]
                 cluster['expression'][fbgn] = cluster['expression'].get(fbgn, 0) + value
                 cluster['presence'][fbgn] = cluster['presence'].get(fbgn, 0) + 1
 

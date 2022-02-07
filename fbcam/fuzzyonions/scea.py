@@ -185,26 +185,6 @@ class Dataset(object):
 
         return self._norm_exp_matrix
 
-    def get_expression_matrix_cells(self, raw=True):
-        """Gets the cell identifiers from the expression matrix."""
-
-        fullname = self.get_expression_matrix_fullname(raw)
-
-        with open(f'{fullname}_cols', 'r') as f:
-            cols = [line.rstrip() for line in f]
-
-        return cols
-
-    def get_expression_matrix_genes(self, raw=True):
-        """Gets the gene identifiers from the expression matrix."""
-
-        fullname = self.get_expression_matrix_fullname(raw)
-
-        with open(f'{fullname}_rows', 'r') as f:
-            rows = [line.split()[0] for line in f]
-
-        return rows
-
     def apply_corrections(self, corrections, only_new=False, target='internal'):
         """Update the experiment design table with custom corrections."""
 
