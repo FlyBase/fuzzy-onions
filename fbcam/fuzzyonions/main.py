@@ -282,10 +282,8 @@ def extract(ctx, specfile, with_reads, text, output):
               help="Write to the specified file instead of standard output.")
 @click.option('--header', '-H', is_flag=True, default=False,
               help="Writes an uncommented header line.")
-@click.option('--stream', '-s', is_flag=True, default=False,
-              help="Do not load the entire expression table in memory.")
 @click.pass_obj
-def sumexpr(ctx, specfile, output, header, stream):
+def sumexpr(ctx, specfile, output, header):
     """Summarize expression data from a dataset.
     
     This command expects a JSON file similar to the one used by the
@@ -294,10 +292,7 @@ def sumexpr(ctx, specfile, output, header, stream):
     """
 
     ds = ctx.curation_factory.from_specfile(specfile)
-    if stream:
-        result = ds.summarise_expression_stream()
-    else:
-        result = ds.summarise_expression()
+    result = ds.summarise_expression()
     if not header:
         # Write a commented header line (needed for harvdev processing)
         output.write('#genes\t')

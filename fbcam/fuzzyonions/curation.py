@@ -136,8 +136,8 @@ class CuratedDataset(object):
 
         self.extracted = True
 
-    def summarise_expression_stream(self):
-        """Generates a summarised expression table (stream version).
+    def summarise_expression(self):
+        """Generates a summarised expression table.
         
         This method produces the summarised expression table by
         "manually" parsing the normalised expression table provided
@@ -228,58 +228,6 @@ class CuratedDataset(object):
         logging.info("Post-processing complete.")
 
         return result
-
-    def summarise_expression(self):
-        """Generates a summarised expression table."""
-
-        if 'corrections' in self._spec:
-            self._ds.apply_corrections(self._spec['corrections'])
-
-        # Get the normalized expression in exploitable form
-        # HACK: The matrix read by SciPy's mmread function is filled with
-        # zeros. To replace them with NaNs, we need to transform the spare
-        # matrix into a dense matrix. This is probably not very efficient,
-        # but it seems good enough even with some of the largest datasets
-        # currently available on SCEA.
-        matrix = self._ds.normalised_expression.transpose()
-        matrix = matrix.sparse.to_dense()
-        matrix.replace(0.0, numpy.nan, inplace=True)
-
-        # Join the expression matrix with the experiment design table to
-        # associate cell IDs with cell types
-        expd = self._ds.experiment_design.set_index('Assay')
-        matrix = matrix.join(expd[self.cell_type_column], on='cells')
-
-        result = None
-        for sample in self._spec['samples']:
-            subset = self._get_sample_subset(sample)
-
-            # Subset of the expression matrix for this sample
-            sm = matrix.loc[subset['Assay']]
-
-            # Loop through cell types in this sample
-            cell_types = subset.loc[:, self.cell_type_column].dropna().unique()
-            for cell_type in [c for c in cell_types if c not in self.excluded_cell_types]:
-                # Subset of the expression matrix for this cell type
-                smc = sm.loc[sm[self.cell_type_column] == cell_type,:].set_index(self.cell_type_column)
-
-                # Mean expression
-                means = smc.mean()
-
-                # "Spread" of expression
-                spreads = smc.count() / len(smc)
-
-                # Build the result dataframe
-                d = pandas.DataFrame(data={'mean_expr': means, 'spread': spreads})
-                d['celltype'] = cell_type
-                d['sample'] = self._get_cluster_symbol(sample, self._get_simplified_cell_type(cell_type))
-                if result is not None:
-                    result = result.append(d)
-                else:
-                    result = d
-
-        result.index.rename('genes', inplace=True)
-        return result.dropna()
 
     def to_text(self, output):
         """Writes a text description of the dataset.
