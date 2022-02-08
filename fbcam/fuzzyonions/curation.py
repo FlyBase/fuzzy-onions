@@ -94,6 +94,9 @@ class CuratedDataset(object):
         if 'corrections' in self._spec:
             self._ds.apply_corrections(self._spec['corrections'])
 
+        if with_reads:
+            sample_by_cell_id = {}
+
         for sample in self._spec['samples']:
             subset = self._get_sample_subset(sample)
 
@@ -110,29 +113,24 @@ class CuratedDataset(object):
                         if n > 0:
                             sample['cell_types'][cell_type] = n
 
-            # Get the number of reads from the raw expression matrix
             if with_reads:
-                mm = self._ds.raw_expression
+                # Allow for fast look up of which sample a cell belongs to
+                for cell_id in subset['Assay']:
+                    sample_by_cell_id[cell_id] = sample
+                sample['reads'] = 0
 
-                # In some datasets (at least E-GEOD-100058... for now), there
-                # is a discrepancy between the experiment design table and the
-                # expression matrix, where not all cell identifiers from the
-                # experiment design table have a corresponding column in the
-                # expression matrix. We need to remove those offending cell
-                # IDs before we look up the number of reads. Such a
-                # discrepancy MAY be an indicator that there's something fishy
-                # with the dataset, so if we detect it, we print a warning
-                # giving the extent of the discrepancy (how many cells are
-                # missing).
-                present = subset.loc[subset['Assay'].isin(mm.columns)]['Assay']
-                diff = n_cells - len(present)
-                if diff > 0:
-                    logging.warn(f"{sample['symbol']}: {diff}/{n_cells} cells "
-                                  "were removed because they are absent from "
-                                  "the expression matrix.")
+        # Get the number of reads from the raw expression matrix
+        if with_reads:
+            raw_file = self._ds.get_expression_matrix_fullname(raw=True)
+            with MatrixMarketFile(raw_file) as mmf:
+                mmf.set_progress_callback(lambda p: logging.info(f"Reading expression matrix: {p}% complete..."))
+                for _, cell, value in mmf:
+                    sample = sample_by_cell_id.get(cell)
+                    if sample:
+                        sample['reads'] += value
 
-                n_reads = mm.loc[:, present].sum().sum()
-                sample['reads'] = int(n_reads)
+            for sample in self._spec['samples']:
+                sample['reads'] = int(sample['reads'])
 
         self.extracted = True
 
