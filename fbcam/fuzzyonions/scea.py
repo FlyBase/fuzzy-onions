@@ -28,8 +28,8 @@ from zipfile import ZipFile, BadZipFile
 
 import requests
 import pandas
-from pandas.core.arrays.sparse.accessor import SparseFrameAccessor
-from scipy.io import mmread
+
+from fbcam.fuzzyonions.matrixmarket import MatrixMarketFile
 
 
 class DataType(IntFlag):
@@ -138,8 +138,6 @@ class Dataset(object):
         self._id = os.path.basename(directory)
         self._files = os.listdir(directory)
         self._expdesign = None
-        self._raw_exp_matrix = None
-        self._norm_exp_matrix = None
         self._staging = staging
 
     @property
@@ -167,23 +165,10 @@ class Dataset(object):
                                               sep='\t', low_memory=False)
         return self._expdesign
 
-    @property
-    def raw_expression(self):
-        """Gets the raw expression data matrix."""
+    def get_expression_matrix(self, raw=True):
+        """Gets the expression matrix table, as a file."""
 
-        if self._raw_exp_matrix is None:
-            self._raw_exp_matrix = self._read_expression_matrix(True)
-
-        return self._raw_exp_matrix
-
-    @property
-    def normalised_expression(self):
-        """Gets the normalised expression data matrix."""
-
-        if self._norm_exp_matrix is None:
-            self._norm_exp_matrix = self._read_expression_matrix(False)
-
-        return self._norm_exp_matrix
+        return MatrixMarketFile(self._get_expression_matrix_fullname(raw))
 
     def apply_corrections(self, corrections, only_new=False, target='internal'):
         """Update the experiment design table with custom corrections."""
@@ -214,22 +199,7 @@ class Dataset(object):
 
         return n
 
-    def _read_expression_matrix(self, raw=True):
-        fullname = self.get_expression_matrix_fullname(raw)
-
-        cols = pandas.read_table(f'{fullname}_cols', header=None,
-                                 names=['cells'])
-        rows = pandas.read_table(f'{fullname}_rows', header=None,
-                                 names=['genes'], usecols=[0])
-        raw_matrix = mmread(fullname)
-
-        matrix = SparseFrameAccessor.from_spmatrix(raw_matrix,
-                                                   columns=cols['cells'],
-                                                   index=rows['genes'])
-
-        return matrix
-
-    def get_expression_matrix_fullname(self, raw=True):
+    def _get_expression_matrix_fullname(self, raw=True):
         """Gets the full pathname to the expression matrix file."""
 
         dt = DataType.RAW_EXPRESSION_DATA

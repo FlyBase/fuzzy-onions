@@ -21,10 +21,7 @@
 
 import json
 import logging
-import numpy
 import pandas
-
-from fbcam.fuzzyonions.matrixmarket import MatrixMarketFile
 
 
 class CuratedDataset(object):
@@ -121,8 +118,7 @@ class CuratedDataset(object):
 
         # Get the number of reads from the raw expression matrix
         if with_reads:
-            raw_file = self._ds.get_expression_matrix_fullname(raw=True)
-            with MatrixMarketFile(raw_file) as mmf:
+            with self._ds.get_expression_matrix(raw=True) as mmf:
                 mmf.set_progress_callback(lambda p: logging.info(f"Reading expression matrix: {p}% complete..."))
                 for _, cell, value in mmf:
                     sample = sample_by_cell_id.get(cell)
@@ -185,8 +181,7 @@ class CuratedDataset(object):
 
         # Processing of the expression table
 
-        matrix_file = self._ds.get_expression_matrix_fullname(raw=False)
-        with MatrixMarketFile(matrix_file) as mmf:
+        with self._ds.get_expression_matrix(raw=False) as mmf:
             mmf.set_progress_callback(lambda p: logging.info(f"Reading expression table: {p}% complete..."))
             for fbgn, cell, value in mmf:
 
