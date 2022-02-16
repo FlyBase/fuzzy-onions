@@ -1,0 +1,2 @@
+include COPYING README.md requirements.txt
+graft docs

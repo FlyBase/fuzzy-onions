@@ -53,5 +53,12 @@ setup(
         'console_scripts': [
             'fzo = fbcam.fuzzyonions.main:main'
             ]
+        },
+
+    command_options={
+        'build_sphinx': {
+            'version': ('setup.py', __version__),
+            'release': ('setup.py', __version__)
+            }
         }
     )
