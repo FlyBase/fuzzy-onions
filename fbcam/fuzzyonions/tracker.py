@@ -676,7 +676,7 @@ def update(ctx, dsid, upstream_id, cell_types, ct_request_date, ct_reply_date,
     if ct_reply_date:
         ds.cell_types.set_obtained(date=ct_reply_date)
     elif ct_request_date:
-        ds.cell_types.set_requested(date=ct_reply_date)
+        ds.cell_types.set_requested(date=ct_request_date)
 
     if comment is not None and decision is None:
         decision = FlyBaseEvaluation.UNKNOWN
