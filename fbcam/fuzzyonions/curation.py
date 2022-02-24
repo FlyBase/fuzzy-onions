@@ -113,7 +113,10 @@ class CuratedDataset(object):
             if with_reads:
                 # Allow for fast look up of which sample a cell belongs to
                 for cell_id in subset['Assay']:
-                    sample_by_cell_id[cell_id] = sample
+                    if not cell_id in sample_by_cell_id:
+                        sample_by_cell_id[cell_id] = [sample]
+                    else:
+                        sample_by_cell_id[cell_id].append(sample)
                 sample['reads'] = 0
 
         # Get the number of reads from the raw expression matrix
@@ -121,9 +124,10 @@ class CuratedDataset(object):
             with self._ds.get_expression_matrix(raw=True) as mmf:
                 mmf.set_progress_callback(lambda p: logging.info(f"Reading expression matrix: {p}% complete..."))
                 for _, cell, value in mmf:
-                    sample = sample_by_cell_id.get(cell)
-                    if sample:
-                        sample['reads'] += value
+                    samples = sample_by_cell_id.get(cell)
+                    if samples:
+                        for sample in samples:
+                            sample['reads'] += value
 
             for sample in self._spec['samples']:
                 sample['reads'] = int(sample['reads'])
@@ -175,7 +179,10 @@ class CuratedDataset(object):
 
                 # Allow for fast look up of which cluster a cell belongs to
                 for cell_id in ct_subset['Assay']:
-                    clusters_by_cell_id[cell_id] = cluster
+                    if not cell_id in clusters_by_cell_id:
+                        clusters_by_cell_id[cell_id] = [cluster]
+                    else:
+                        clusters_by_cell_id[cell_id].append(cluster)
 
         logging.info("Preprocessing complete.")
 
@@ -188,9 +195,9 @@ class CuratedDataset(object):
                 if cell not in clusters_by_cell_id:
                     continue
 
-                cluster = clusters_by_cell_id[cell]
-                cluster['expression'][fbgn] = cluster['expression'].get(fbgn, 0) + value
-                cluster['presence'][fbgn] = cluster['presence'].get(fbgn, 0) + 1
+                for cluster in clusters_by_cell_id[cell]:
+                    cluster['expression'][fbgn] = cluster['expression'].get(fbgn, 0) + value
+                    cluster['presence'][fbgn] = cluster['presence'].get(fbgn, 0) + 1
 
         logging.info("Processing complete.")
 
