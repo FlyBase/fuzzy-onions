@@ -408,7 +408,12 @@ class CuratedDataset(object):
         if columns:
             selectors = sample['selectors']
             for i in range(len(columns)):
-                subset = subset.loc[subset[columns[i]] == selectors[i]]
+                if isinstance(selectors[i], list):
+                    subset = subset.loc[subset[columns[i]].isin(selectors[i])]
+                elif selectors[i] == '*':
+                    pass
+                else:
+                    subset = subset.loc[subset[columns[i]] == selectors[i]]
 
         return subset
 
