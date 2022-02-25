@@ -297,7 +297,11 @@ class CuratedDataset(object):
         for sample in self._spec['samples']:
             symbol = self._get_sample_symbol(sample)
             stage = sample['stage']
+            if 'sex' in sample:
+                stage += ' | ' + sample['sex']
             title = sample['title']
+            tissue = sample.get('anatomical_part', 'TODO: tissue')
+            genotype, strain = self._get_strain_and_genotype(sample)
 
             generator = builder.get_generator(template='dataset/biosample')
             fills = {
@@ -305,10 +309,10 @@ class CuratedDataset(object):
                 'LC6g': title[0].upper() + title[1:],
                 'LC2b': 'isolated cells ; FBcv:0003047',
                 'LC3': self._spec['symbol'],
-                'LC4g': f'<e><t>{stage}<a>TODO: tissue<s><note>',
+                'LC4g': f'<e><t>{stage}<a>{tissue}<s><note>',
                 'LC11m': 'TODO: <FBcv terms from \'biosample attribute\' (FBcv:0003137)>',
-                'LC4h': 'TODO: [as needed]',
-                'LC4f': 'TODO: [as needed]',
+                'LC4h': strain,
+                'LC4f': genotype,
                 'LC12a': 'TODO: [as needed]',
                 'LC12b': 'TODO: [as needed]',
                 'LC11a': 'TODO: <How the sample was obtained>'
@@ -426,6 +430,17 @@ class CuratedDataset(object):
 
     def _get_simplified_cell_type(self, cell_type):
         return self.simplified_cell_types.get(cell_type, cell_type)
+
+    def _get_strain_and_genotype(self, sample):
+        genotype = sample.get('genotype')
+        if genotype:
+            return (genotype, '')
+
+        strain = sample.get('strain')
+        if strain:
+            return ('', strain)
+
+        return ('TODO: [as needed]', 'TODO: [as needed]')
 
 
 class CuratedDatasetFactory(object):
