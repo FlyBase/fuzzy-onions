@@ -303,7 +303,7 @@ def sumexpr(ctx, specfile, output, header):
         output.write('#genes\t')
         output.write('\t'.join(result.columns))
         output.write('\n')
-    result.to_csv(output, sep='\t', header=header)
+    result.to_csv(output, sep='\t', header=header, float_format='%.6f')
 
 
 @main.command()
