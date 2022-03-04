@@ -228,8 +228,8 @@ class CuratedDataset(object):
             d['mean_expr'] = d['expression'] / d['presence']
             # and 'extent of expression'
             d['spread'] = d['presence'] / n
-            d['cell_type'] = cluster['cell_type']
-            d['symbol'] = cluster['symbol']
+            d['celltype'] = cluster['cell_type']
+            d['sample'] = cluster['symbol']
 
             d = d.drop(columns=['expression', 'presence'])
 
