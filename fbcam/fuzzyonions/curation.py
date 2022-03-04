@@ -27,7 +27,7 @@ import pandas
 class CuratedDataset(object):
     """Represents a scRNAseq dataset with associated curation data."""
 
-    def __init__(self, spec, dataset):
+    def __init__(self, spec, dataset, no_exclude=False):
         """Creates a new instance.
         
         :param spec: a structure containing the curation data
@@ -36,22 +36,13 @@ class CuratedDataset(object):
 
         self._spec = spec
         self._ds = dataset
+        self._exclude_cell_types = not no_exclude
 
     @property
     def cell_type_column(self):
         """Gets the name of the column with cell type information."""
 
         return self._spec.get('cell_types_column', None)
-
-    @property
-    def excluded_cell_types(self):
-        """Gets a list of cell types to exclude.
-        
-        Any cell type listed will be excluded from the generated
-        proforma and summarised expression table.
-        """
-
-        return self._spec.get('excluded_cell_types', [])
 
     @property
     def simplified_cell_types(self):
@@ -75,6 +66,28 @@ class CuratedDataset(object):
         """Sets the extraction marker."""
 
         self._spec['extracted'] = value
+
+    def is_cell_type_excluded(self, cell_type, sample=None):
+        """Indicates whether a cell type should be excluded.
+
+        A cell type can be excluded if it is specified in a
+        `exclude_cell_types` directory, either directly in the dataset
+        description object (where it applies to all samples in the
+        dataset), or in the sample description object.
+        """
+
+        if not self._exclude_cell_types:
+            return False
+
+        if sample and 'excluded_cell_types' in sample:
+            if cell_type in sample['excluded_cell_types']:
+                return True
+
+        if 'excluded_cell_types' in self._spec:
+            if cell_type in self._spec['excluded_cell_types']:
+                return True
+
+        return False
 
     def extract(self, with_reads=True):
         """Extracts data from raw data files.
@@ -105,7 +118,7 @@ class CuratedDataset(object):
             sample['cell_types'] = {}
             if self.cell_type_column is not None:
                 for cell_type in subset[self.cell_type_column].unique():
-                    if cell_type not in self.excluded_cell_types:
+                    if not self.is_cell_type_excluded(cell_type, sample):
                         n = len(subset.loc[subset[self.cell_type_column] == cell_type])
                         if n > 0:
                             sample['cell_types'][cell_type] = n
@@ -161,7 +174,7 @@ class CuratedDataset(object):
             # Get all cell types present in this sample
             cell_types = subset.loc[:, self.cell_type_column].dropna().unique()
 
-            for cell_type in [c for c in cell_types if c not in self.excluded_cell_types]:
+            for cell_type in [c for c in cell_types if not self.is_cell_type_excluded(c, sample)]:
                 simplified_cell_type = self._get_simplified_cell_type(cell_type)
 
                 # Get the cells for this cluster in this sample
@@ -445,10 +458,11 @@ class CuratedDataset(object):
 
 class CuratedDatasetFactory(object):
 
-    def __init__(self, store):
+    def __init__(self, store, no_exclude=False):
         self._store = store
+        self._no_exclude = no_exclude
 
     def from_specfile(self, specfile):
         spec = json.load(specfile)
         dataset = self._store.get(spec['dataset_id'])
-        return CuratedDataset(spec, dataset)
+        return CuratedDataset(spec, dataset, self._no_exclude)

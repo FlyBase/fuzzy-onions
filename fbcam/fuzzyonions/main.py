@@ -53,10 +53,11 @@ class SourceStore(IntFlag):
 
 class FzoContext(object):
 
-    def __init__(self, config_file, source):
+    def __init__(self, config_file, source, no_exclude=False):
         self._config_file = config_file
         self._config = ConfigParser()
         self._source = source
+        self._no_exclude = no_exclude
 
         self.reset()
 
@@ -142,7 +143,8 @@ class FzoContext(object):
     @property
     def curation_factory(self):
         if self._curation_factory is None:
-            self._curation_factory = CuratedDatasetFactory(self.raw_store)
+            self._curation_factory = CuratedDatasetFactory(self.raw_store,
+                                                           self._no_exclude)
         return self._curation_factory
 
     def filter_subset(self, column, value):
@@ -166,8 +168,11 @@ class FzoContext(object):
               help="Only use data from production server.")
 @click.option('--staging', '-s', is_flag=True, default=False,
               help="Only use data from staging server.")
+@click.option('--no-excluded-cell-types', '-n', 'no_exclude',
+              is_flag=True, default=False,
+              help="Do not exclude any cell types.")
 @click.pass_context
-def main(ctx, config, production, staging):
+def main(ctx, config, production, staging, no_exclude):
     """Helper scripts for the FlyBase scRNAseq project."""
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
@@ -186,7 +191,7 @@ def main(ctx, config, production, staging):
     else:
         source = SourceStore.BOTH
 
-    context = FzoContext(config, source)
+    context = FzoContext(config, source, no_exclude)
     ctx.obj = context
 
     if not context.has_config:
