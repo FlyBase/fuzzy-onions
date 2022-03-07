@@ -310,7 +310,7 @@ class CuratedDataset(object):
 
         for sample in self._spec['samples']:
             symbol = self._get_sample_symbol(sample)
-            stage = sample['stage']
+            stage = sample.get('stage', self._spec['all_samples']['stage'])
             if 'sex' in sample:
                 stage += ' | ' + sample['sex']
             title = sample['title']
@@ -318,18 +318,27 @@ class CuratedDataset(object):
             genotype, strain = self._get_strain_and_genotype(sample)
 
             generator = builder.get_generator(template='dataset/biosample')
+            sample_terms = '\n'.join(sample.get('cv_terms', self._spec.get('all_samples', {}).get('cv_terms', '<DEFAULT>')))
+            sample_prep = sample.get('isolation', self._spec.get('all_samples', {}).get('isolation', '<DEFAULT>'))
+            entities = sample.get('entities', self._spec.get('all_samples', {}).get('entities'))
+            if entities is None:
+                entity_names = '<DEFAULT>'
+                entity_types = '<DEFAULT>'
+            else:
+                entity_names = '\n! LC12a. Experimental entity :'.join([a[0] for a in entities])
+                entity_types = '\n! LC12b. Type of experimental entity :'.join([a[1] for a in entities])
             fills = {
                 'LC1a': symbol,
                 'LC6g': title[0].upper() + title[1:],
                 'LC2b': 'isolated cells ; FBcv:0003047',
                 'LC3': self._spec['symbol'],
                 'LC4g': f'<e><t>{stage}<a>{tissue}<s><note>',
-                'LC11m': 'TODO: <FBcv terms from \'biosample attribute\' (FBcv:0003137)>',
+                'LC11m': sample_terms,
                 'LC4h': strain,
                 'LC4f': genotype,
-                'LC12a': 'TODO: [as needed]',
-                'LC12b': 'TODO: [as needed]',
-                'LC11a': 'TODO: <How the sample was obtained>'
+                'LC12a': entity_names,
+                'LC12b': entity_types,
+                'LC11a': sample_prep
                 }
             generator.fill_template(fills)
 
@@ -455,6 +464,14 @@ class CuratedDataset(object):
         strain = sample.get('strain')
         if strain:
             return ('', strain)
+
+        if 'all_samples' in self._spec:
+            genotype = self._spec['all_samples'].get('genotype')
+            if genotype:
+                return (genotype, '')
+            strain = self._spec['all_samples'].get('strain')
+            if strain:
+                return ('', strain)
 
         return ('TODO: [as needed]', 'TODO: [as needed]')
 
