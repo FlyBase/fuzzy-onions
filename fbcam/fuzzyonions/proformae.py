@@ -96,13 +96,13 @@ TEMPLATES = {
             ('LC2b', None),
             ('LC3', None),
             ('LC14a', None),
-            ('LC14d', None),
-            ('LC14e', None),
+            ('LC14d', 'TODO: [LC1a symbol of technical reference assay, if relevant]'),
+            ('LC14e', 'TODO: [LC1a symbol of biological reference assay, if relevant]'),
             ('LC4a', 'Dmel'),
             ('LC6d', 'N'),
             ('LC6e', None),
             ('LC6f', None),
-            ('LC11m', None),
+            ('LC11m', 'TODO: <FBcv terms from \'assay method\' (FBcv:0003208)>'),
             ('LC10', None)
             ]
         },

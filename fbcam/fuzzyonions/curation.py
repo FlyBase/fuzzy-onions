@@ -310,7 +310,7 @@ class CuratedDataset(object):
 
         for sample in self._spec['samples']:
             symbol = self._get_sample_symbol(sample)
-            stage = sample.get('stage', self._spec['all_samples']['stage'])
+            stage = sample.get('stage', self._spec.get('all_samples', {}).get('stage', 'TODO: stage'))
             if 'sex' in sample:
                 stage += ' | ' + sample['sex']
             title = sample['title']
@@ -327,7 +327,7 @@ class CuratedDataset(object):
                 assay_title = f'Single-cell RNA-Seq of {title}'
 
             generator = builder.get_generator(template='dataset/biosample')
-            sample_terms = '\n'.join(sample.get('cv_terms', self._spec.get('all_samples', {}).get('cv_terms', '<DEFAULT>')))
+            sample_terms = '\n'.join(sample.get('cv_terms', self._spec.get('all_samples', {}).get('cv_terms', ['<DEFAULT>'])))
             sample_prep = sample.get('isolation', self._spec.get('all_samples', {}).get('isolation', '<DEFAULT>'))
             entities = sample.get('entities', self._spec.get('all_samples', {}).get('entities'))
             if entities is None:
@@ -352,6 +352,15 @@ class CuratedDataset(object):
             generator.fill_template(fills)
 
             generator = builder.get_generator(template='dataset/assay')
+            all_assays = self._spec.get('all_assays', {})
+            assay = sample.get('assay', {})
+            assay_terms = '\n'.join(assay.get('cv_terms', all_assays.get('cv_terms', ['<DEFAULT>'])))
+            technical_ref = assay.get('technical_reference', all_assays.get('technical_reference', '<DEFAULT>'))
+            if technical_ref != '' and technical_ref != '<DEFAULT>':
+                technical_ref = self._spec['symbol'] + technical_ref + '_seq'
+            biological_ref = assay.get('biological_reference', all_assays.get('biological_reference', '<DEFAULT>'))
+            if biological_ref != '' and biological_ref != '<DEFAULT>':
+                biological_ref = self._spec['symbol'] + biological_ref + '_seq'
             fills = {
                 'LC1a': symbol + '_seq',
                 'LC6g': assay_title,
@@ -360,9 +369,9 @@ class CuratedDataset(object):
                 'LC14a': symbol,
                 'LC6e': sample['reads'],
                 'LC6f': 'reads',
-                'LC14d': 'TODO: [LC1a symbol of technical reference assay, if relevant]',
-                'LC14e': 'TODO: [LC1a symbol of biological reference assay, if relevant]',
-                'LC11m': 'TODO: <FBcv terms from \'assay method\' (FBcv:0003208)>'
+                'LC14d': technical_ref,
+                'LC14e': biological_ref,
+                'LC11m': assay_terms
                 }
             generator.fill_template(fills)
 
