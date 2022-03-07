@@ -316,6 +316,15 @@ class CuratedDataset(object):
             title = sample['title']
             tissue = sample.get('anatomical_part', 'TODO: tissue')
             genotype, strain = self._get_strain_and_genotype(sample)
+            single_nuclei = sample.get('is_single_nuclei', self._spec.get('all_samples', {}).get('is_single_nuclei', 'no')) == 'yes'
+            if single_nuclei:
+                sample_type = 'isolated nuclei ; FBcv:0009004'
+                assay_type = 'single-nucleus RNA-Seq ; FBcv:0009001'
+                assay_title = f'Single-nucleus RNA-seq of {title}'
+            else:
+                sample_type = 'isolated cells ; FBcv:0003047'
+                assay_type = 'single-cell RNA-Seq ; FBcv:0009000'
+                assay_title = f'Single-cell RNA-Seq of {title}'
 
             generator = builder.get_generator(template='dataset/biosample')
             sample_terms = '\n'.join(sample.get('cv_terms', self._spec.get('all_samples', {}).get('cv_terms', '<DEFAULT>')))
@@ -330,7 +339,7 @@ class CuratedDataset(object):
             fills = {
                 'LC1a': symbol,
                 'LC6g': title[0].upper() + title[1:],
-                'LC2b': 'isolated cells ; FBcv:0003047',
+                'LC2b': sample_type,
                 'LC3': self._spec['symbol'],
                 'LC4g': f'<e><t>{stage}<a>{tissue}<s><note>',
                 'LC11m': sample_terms,
@@ -345,8 +354,8 @@ class CuratedDataset(object):
             generator = builder.get_generator(template='dataset/assay')
             fills = {
                 'LC1a': symbol + '_seq',
-                'LC6g': f'Single-cell RNA-seq of {title}',
-                'LC2b': 'single-cell RNA-Seq ; FBcv:0009000',
+                'LC6g': assay_title,
+                'LC2b': assay_type,
                 'LC3': self._spec['symbol'],
                 'LC14a': symbol,
                 'LC6e': sample['reads'],
