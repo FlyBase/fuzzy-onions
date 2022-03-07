@@ -32,8 +32,8 @@ TEMPLATES = {
     'pub_mini': {
         'proforma': ProformaType.PUB_MINI,
         'contents': [
-            ('P22', None),
-            ('P2', None),
+            ('P22', 'TODO: FBrfXXXXXXX'),
+            ('P2', 'TODO: <Journal abbreviation>'),
             ('P19', None)
             ]
         },
@@ -42,25 +42,25 @@ TEMPLATES = {
         'contents': [
             ('LC1f', 'new'),
             ('LC1a', None),
-            ('LC6g', None),
+            ('LC6g', 'TODO: Single-cell RNA-seq study of <tissue and stage> [upon condition]'),
             ('LC6a', None),
             ('LC2a', 'project ; FBcv:0003023'),
-            ('LC2b', None),
+            ('LC2b', 'transcriptome ; FBcv:0003034'),
             ('LC13a', None),
             ('LC13b', None),
-            ('LC13c', None),
+            ('LC13c', 'TODO: [GO terms for biological processes studied]'),
             ('LC13d', None),
             ('LC4a', 'Dmel'),
             ('LC4i', None),
             ('LC6d', 'N'),
-            ('LC11m', None),
-            ('LC6b', None),
-            ('LC11c', None),
-            ('LC11e', None),
-            ('LC7a', None),
+            ('LC11m', 'TODO: <FBcv terms from \'study design\' (FBcv:0003130)>'),
+            ('LC6b', 'TODO: <How the biological material was processed>'),
+            ('LC11c', 'TODO: <How the mRNA libraries were sequenced>'),
+            ('LC11e', 'TODO: <How the sequencing data were analysed>'),
+            ('LC7a', 'The EMBL-EBI\'s Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.'),
             ('LC99a', None),
-            ('LC99b', None),
-            ('LC8c', None),
+            ('LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets'),
+            ('LC8c', 'TODO: [Name of the research group](URL of their website)'),
             ('LC10', None)
             ]
         },
@@ -232,7 +232,8 @@ class ProformaGenerator(object):
 
         for field, value in template:
             if field in values:
-                value = values[field]
+                if values[field] != '<DEFAULT>':
+                    value = values[field]
             self.write_field(field, value)
 
         self.write_separator()

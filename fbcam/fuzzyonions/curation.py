@@ -280,31 +280,32 @@ class CuratedDataset(object):
                 with_cell_types = True
 
         generator = builder.get_generator(template='pub_mini')
-        fills = {
-            'P22': 'TODO: FBrfXXXXXXX',
-            'P2': 'TODO: <Journal abbreviation>'
-        }
+        fills = {}
+        if 'reference' in self._spec:
+            fills['P22'] = self._spec['reference'].get('fbrf', '<DEFAULT>')
+            fills['P2'] = self._spec['reference'].get('journal', '<DEFAULT>')
         generator.fill_template(fills)
 
         generator = builder.get_generator(template='dataset/project')
         fills = {
             'LC1a': self._spec['symbol'],
-            'LC6g': 'TODO: Single-cell RNA-seq study of <tissue and stage> [upon condition]',
-            'LC2b': 'transcriptome ; FBcv:0003034',
-            'LC99a': self._spec['dataset_id'],
-            'LC99b': 'EMBL-EBI Single Cell Expression Atlas Datasets',
-            'LC7a': 'The EMBL-EBI\'s Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.',
-            'LC8c': 'TODO: [Name of the research group](URL of their website)',
-            'LC13c': 'TODO: [GO terms for biological processes studied]',
-            'LC11m':' TODO: <FBcv terms from \'study design\' (FBcv:0003130)>',
-            'LC6b': 'TODO: <How the biological material was processed>',
-            'LC11c': 'TODO: <How the mRNA libraries were sequenced>',
-            'LC11e': 'TODO: <How the sequencing data were analysed>'
+            'LC99a': self._spec['dataset_id']
             }
         if with_cell_types:
             fills['LC6a'] = 'TODO: A characterization of the diverse populations of cells in...'
         else:
             fills['LC6a'] = 'TODO: A single-cell transcriptomic study of the diverse populations from...'
+        if 'project' in self._spec:
+            project = self._spec['project']
+            fills['LC6g'] = project.get('title', '<DEFAULT>')
+            fills['LC6a'] = project.get('description')
+            fills['LC13c'] = '\n'.join(project.get('go_terms', {}).get('biological_process', []))
+            fills['LC11m'] = '\n'.join(project.get('protocols', {}).get('cv_terms', []))
+            fills['LC6b'] = project.get('protocols', {}).get('preparation')
+            fills['LC11c'] = project.get('protocols', {}).get('assay')
+            fills['LC11e'] = project.get('protocols', {}).get('analysis')
+            source = project['source']
+            fills['LC8c'] = f"[{source['name']}]({source['url']})"
         generator.fill_template(fills)
 
         for sample in self._spec['samples']:
