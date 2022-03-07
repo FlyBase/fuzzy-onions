@@ -419,7 +419,9 @@ class CuratedDataset(object):
             ('embryonic ', ''),
             ('larval ', ''),
             ('adult ', ''),
-            (' ', '_')
+            (' ', '_'),
+            ('-', '_'),
+            ('/', '_')
             ]
         for rule in replace_rules:
             cell_type = cell_type.replace(rule[0], rule[1])
