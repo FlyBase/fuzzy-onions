@@ -67,6 +67,25 @@ class CombinedFileStore(object):
             ds = self._staging.get(dsid, download)
         return ds
 
+    def update(self):
+        """Update the store from the production server."""
+
+        updated = []
+        for dataset in self._staging.datasets:
+            if dataset.id not in [ds.id for ds in self._prod.datasets]:
+                logging.info(f"Checking for {dataset.id} on production")
+                ds = self._prod.get(dataset.id)
+                if ds is not None:
+                    updated.append(dataset.id)
+            else:
+                logging.info(f"Removing {dataset.id} from staging")
+                updated.append(dataset.id)
+
+        if len(updated) > 0:
+            self._staging.delete(updated)
+
+        return updated
+
 
 class FileStore(object):
     """Represents a local file-based store for SCEA data."""
@@ -113,6 +132,14 @@ class FileStore(object):
                                            self._staging)
 
         return self._datasets[dsid]
+
+    def delete(self, dsids):
+        """Remove the specified datasets from the local file store."""
+
+        for dsid in dsids:
+            if dsid in self._datasets:
+                self._datasets[dsid].delete()
+        self._refresh()
 
     def _refresh(self):
         self._datasets = {}
@@ -169,6 +196,13 @@ class Dataset(object):
         """Gets the expression matrix table, as a file."""
 
         return MatrixMarketFile(self._get_expression_matrix_fullname(raw))
+
+    def delete(self):
+        """Delete this dataset from its file store."""
+
+        for file in self._files:
+            os.remove(os.path.join(self._directory, file))
+        os.rmdir(self._directory)
 
     def apply_corrections(self, corrections, only_new=False, target='internal'):
         """Update the experiment design table with custom corrections."""

@@ -165,6 +165,13 @@ class DatasetTracker(object):
         ds = { 'scea': { 'dataset_id': dsid, 'status': str(status)} }
         self._datasets.append(TrackedDataset.from_dict(ds))
 
+    def promote_to_production(self, dsid):
+        """Marks a dataset as being in production at the SCEA."""
+
+        ds = self.get_dataset(dsid)
+        if ds is not None:
+            ds.scea.status = SceaStatus.IN_PRODUCTION
+
 
 class TrackedDataset(object):
     """Represents a single dataset."""
@@ -226,6 +233,10 @@ class SceaData(object):
     @property
     def status(self):
         return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
 
     @property
     def upstream_identifier(self):

@@ -231,6 +231,23 @@ def list_datasets(ctx):
 
 @main.command()
 @click.pass_obj
+def update(ctx):
+    """Update all locally available datasets.
+    
+    This command checks whether datasets from the SCEA staging server
+    have been moved to production and if so, updates the local cache
+    with the production files.
+    """
+
+    upds = ctx.raw_store.update()
+    for dsid in upds:
+        ctx.tracker.promote_to_production(dsid)
+    if len(upds) > 0:
+        ctx.tracker.save()
+
+
+@main.command()
+@click.pass_obj
 def ipython(ctx):
     """Start an interactive Python shell."""
 
