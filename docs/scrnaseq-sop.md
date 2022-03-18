@@ -1425,11 +1425,12 @@ Name that file after the record that created (or will create, if it has
 not been loaded yet) the dataset object in the database, with an added
 `.scrnaseq.tsv` extension.
 
-Once the proforma has been loaded into the database, upload the TSV file
-to the Harvard FTP server, in the `fromcam/scrnaseq` folder. Then ping a
-Harvard developer (Gil) to let them know the table is ready for them to
-process. The work of the Cambridge scRNAseq curators stops here – until
-the next dataset, that is.
+Once the proforma has been submitted for loading during an epicycle,
+upload the TSV file to the Harvard FTP server, in the
+`fromcam/scrnaseq/for_load` folder.  The table will be automatically
+loaded at the end of the current release cycle.  The work of the
+Cambridge scRNAseq curators stops here – until the next dataset, that
+is.
 
 # Using Fuzzy-onions
 
@@ -1938,5 +1939,5 @@ $ fzo sumexpr -o <recordname>.scrnaseq.tsv E-MTAB-8698
 ```
 
 Make sure the output file is named according to the record submitted
-above (e.g. `dg99.scrnaseq.tsv`) and upload it to the `fromcam/scrnaseq`
-folder on the Harvard FTP server.
+above (e.g. `dg99.scrnaseq.tsv`) and upload it to the
+`fromcam/scrnaseq/for_load` folder on the Harvard FTP server.
