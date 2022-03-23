@@ -45,12 +45,6 @@ This program is released under the terms of the 1-clause BSD licence.
 """
 
 
-class SourceStore(IntFlag):
-    BOTH = 0,
-    PRODUCTION = 1,
-    STAGING = 2
-
-
 class FzoContext(object):
 
     def __init__(self, config_file, no_exclude=False):
