@@ -70,9 +70,6 @@ class FzoContext(object):
 
     def reset(self, options=None):
         self._store = None
-        self._dataset = None
-        self._subset = None
-        self._subset_filters = []
         self._curation_factory = None
         self._tracker = None
 
@@ -102,28 +99,6 @@ class FzoContext(object):
         return self._tracker
 
     @property
-    def dataset(self):
-        if self._dataset is None:
-            self._dataset = self.raw_store.datasets[0]
-        return self._dataset
-
-    @property
-    def subset(self):
-        if self._subset is None:
-            return self.dataset.experiment_design
-        else:
-            return self._subset
-
-    @subset.setter
-    def subset(self, subset):
-        self._subset = subset
-        if subset is None:
-            self._subset_filters.clear()
-
-    def load_dataset(self, dsid):
-        self._dataset = self.raw_store.get(dsid)
-
-    @property
     def proformae_folder(self):
         return self._config.get('proformae', 'directory')
 
@@ -133,16 +108,6 @@ class FzoContext(object):
             self._curation_factory = CuratedDatasetFactory(self.raw_store,
                                                            self._no_exclude)
         return self._curation_factory
-
-    def filter_subset(self, column, value):
-        self.subset = self.subset.loc[self.subset[column] == value]
-        self._subset_filters.append([column, value])
-
-    def get_filter_string(self):
-        if len(self._subset_filters) == 0:
-            return '(all)'
-        else:
-            return ' > '.join([b for _, b in self._subset_filters])
 
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},

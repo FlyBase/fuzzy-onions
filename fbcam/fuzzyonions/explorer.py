@@ -23,11 +23,58 @@ import click
 from click_shell import make_click_shell
 
 
+class ExplorerContext(object):
+    """Context holder for the dataset explorer.
+
+    This object keeps track of which dataset is currently being
+    explored and which subset of rows is selected.
+    """
+
+    def __init__(self, store):
+        self._store = store
+        self._dataset = None
+        self._subset = None
+        self._subset_filters = []
+
+    @property
+    def dataset(self):
+        if self._dataset is None:
+            self._dataset = self._store.datasets[0]
+        return self._dataset
+
+    @property
+    def subset(self):
+        if self._subset is None:
+            return self.dataset.experiment_design
+        else:
+            return self._subset
+
+    @subset.setter
+    def subset(self, subset):
+        self._subset = subset
+        if subset is None:
+            self._subset_filters.clear()
+
+    def load_dataset(self, dsid):
+        self._dataset = self._store.get(dsid)
+
+    def filter_subset(self, column, value):
+        self.subset = self.subset.loc[self.subset[column] == value]
+        self._subset_filters.append([column, value])
+
+    def get_filter_string(self):
+        if len(self._subset_filters) == 0:
+            return '(all)'
+        else:
+            return ' > '.join([b for _, b in self._subset_filters])
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 def explorer(ctx):
     """Explore a dataset."""
 
+    ctx.obj = ExplorerContext(ctx.obj.raw_store)
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-explorer> ")
         shell.cmdloop()
@@ -80,7 +127,7 @@ def values(ctx, column, count_cells):
 @click.pass_obj
 def select(ctx, selectors, clear):
     """Select a subset of the experiment design."""
-    
+
     if clear:
         ctx.subset = None
 
@@ -90,9 +137,9 @@ def select(ctx, selectors, clear):
         if not col:
             print(f"Column '{column}' not found")
             return
-        
+
         ctx.filter_subset(col, value)
-        
+
     filter_string = ctx.get_filter_string()
     print(f"{filter_string}: {len(ctx.subset)} cells")
 
