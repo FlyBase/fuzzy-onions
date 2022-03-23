@@ -86,10 +86,7 @@ class FzoContext(object):
     @property
     def tracker(self):
         if self._tracker is None:
-            track = self._config.get('tracking', 'file', fallback=None)
-            if not track:
-                track = '{}/track.json'.format(click.get_app_dir('fuzzyonions'))
-            self._tracker = DatasetTracker(track)
+            self._tracker = DatasetTracker(self._config)
         return self._tracker
 
     @property
@@ -251,7 +248,8 @@ def conf(ctx):
 
         defaults = {
             'store': {'production': store_dir},
-            'proformae': {'directory': proformae_dir}
+            'proformae': {'directory': proformae_dir},
+            'tracking': {'file': '{}/track.json'.format(click.get_app_dir('fuzzyonions'))}
             }
         ctx.reset(options=defaults)
 

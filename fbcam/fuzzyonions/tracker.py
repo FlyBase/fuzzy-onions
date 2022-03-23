@@ -115,8 +115,8 @@ class DatasetTracker(object):
     to be tracked about the datasets.
     """
 
-    def __init__(self, database):
-        self._db_file = database
+    def __init__(self, config):
+        self._db_file = config.get('tracking', 'file')
         self._datasets = None
 
     @property
