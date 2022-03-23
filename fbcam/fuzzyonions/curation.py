@@ -31,7 +31,7 @@ from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 class CuratedDataset(object):
     """Represents a scRNAseq dataset with associated curation data."""
 
-    def __init__(self, spec, dataset, no_exclude=False):
+    def __init__(self, spec, dataset, no_exclude=False, min_cluster=0):
         """Creates a new instance.
         
         :param spec: a structure containing the curation data
@@ -41,6 +41,7 @@ class CuratedDataset(object):
         self._spec = spec
         self._ds = dataset
         self._exclude_cell_types = not no_exclude
+        self._min_cluster = min_cluster
 
     @property
     def cell_type_column(self):
@@ -71,14 +72,19 @@ class CuratedDataset(object):
 
         self._spec['extracted'] = value
 
-    def is_cell_type_excluded(self, cell_type, sample=None):
+    def is_cell_type_excluded(self, cell_type, sample=None, size=-1):
         """Indicates whether a cell type should be excluded.
 
         A cell type can be excluded if it is specified in a
         `exclude_cell_types` directory, either directly in the dataset
         description object (where it applies to all samples in the
-        dataset), or in the sample description object.
+        dataset), or in the sample description object. Additionally,
+        it can be excluded if the corresponding cluster contains less
+        than a pre-defined threshold number of cells.
         """
+
+        if size != -1 and size < self._min_cluster:
+            return True
 
         if not self._exclude_cell_types:
             return False
@@ -122,10 +128,9 @@ class CuratedDataset(object):
             sample['cell_types'] = {}
             if self.cell_type_column is not None:
                 for cell_type in subset[self.cell_type_column].unique():
-                    if not self.is_cell_type_excluded(cell_type, sample):
-                        n = len(subset.loc[subset[self.cell_type_column] == cell_type])
-                        if n > 0:
-                            sample['cell_types'][cell_type] = n
+                    n = len(subset.loc[subset[self.cell_type_column] == cell_type])
+                    if not self.is_cell_type_excluded(cell_type, sample, n) and n > 0:
+                        sample['cell_types'][cell_type] = n
 
             if with_reads:
                 # Allow for fast look up of which sample a cell belongs to
@@ -178,11 +183,13 @@ class CuratedDataset(object):
             # Get all cell types present in this sample
             cell_types = subset.loc[:, self.cell_type_column].dropna().unique()
 
-            for cell_type in [c for c in cell_types if not self.is_cell_type_excluded(c, sample)]:
+            for cell_type in cell_types:
                 simplified_cell_type = self._get_simplified_cell_type(cell_type)
 
                 # Get the cells for this cluster in this sample
                 ct_subset = subset.loc[subset[self.cell_type_column] == cell_type]
+                if self.is_cell_type_excluded(cell_type, sample, len(ct_subset)):
+                    continue
 
                 # Fill the cluster structure
                 cluster = {
@@ -500,15 +507,17 @@ class CuratedDataset(object):
 
 class CurationContext(object):
 
-    def __init__(self, config, store, no_exclude):
+    def __init__(self, config, store, no_exclude, min_cluster_size):
         self._store = store
         self._no_exclude = no_exclude
+        self._min_cluster = min_cluster_size
         self._proformae_dir = config.get('curation', 'proformae')
 
     def from_specfile(self, specfile):
         spec = json.load(specfile)
         dataset = self._store.get(spec['dataset_id'])
-        return CuratedDataset(spec, dataset, self._no_exclude)
+        return CuratedDataset(spec, dataset, self._no_exclude,
+                              self._min_cluster)
 
     def get_proforma_builder(self, output):
         return ProformaGeneratorBuilder(self._proformae_dir, output)
@@ -518,11 +527,14 @@ class CurationContext(object):
 @click.option('--no-excluded-cell-types', '-n', 'no_exclude',
               is_flag=True, default=False,
               help="Do not exclude any cell types.")
+@click.option('--min-cluster-size', '-m', default=0,
+              help="Exclude cluster with less cells than specified.")
 @click.pass_context
-def curate(ctx, no_exclude):
+def curate(ctx, no_exclude, min_cluster_size):
     """Access the curation commands."""
 
-    ctx.obj = CurationContext(ctx.obj.config, ctx.obj.raw_store, no_exclude)
+    ctx.obj = CurationContext(ctx.obj.config, ctx.obj.raw_store, no_exclude,
+                              min_cluster_size)
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-curate> ")
         shell.cmdloop()
