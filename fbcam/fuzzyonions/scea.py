@@ -41,52 +41,6 @@ class DataType(IntFlag):
     RAW_EXPRESSION_DATA = 32
 
 
-class CombinedFileStore(object):
-    """Represents a dual production+staging store."""
-
-    def __init__(self, prod_directory, staging_directory):
-        self._prod = FileStore(prod_directory)
-        self._staging = FileStore(staging_directory, staging=True)
-
-    @property
-    def datasets(self):
-        """Gets all the datasets in the store."""
-
-        return self._prod.datasets + self._staging.datasets
-
-    def get(self, dsid, download=True):
-        """Gets a single dataset.
-        
-        :param dsid: the dataset ID
-        :param download: if True (the default), the dataset will be
-            downloaded if it is not already available locally
-        """
-
-        ds = self._prod.get(dsid, download)
-        if ds is None:
-            ds = self._staging.get(dsid, download)
-        return ds
-
-    def update(self):
-        """Update the store from the production server."""
-
-        updated = []
-        for dataset in self._staging.datasets:
-            if dataset.id not in [ds.id for ds in self._prod.datasets]:
-                logging.info(f"Checking for {dataset.id} on production")
-                ds = self._prod.get(dataset.id)
-                if ds is not None:
-                    updated.append(dataset.id)
-            else:
-                logging.info(f"Removing {dataset.id} from staging")
-                updated.append(dataset.id)
-
-        if len(updated) > 0:
-            self._staging.delete(updated)
-
-        return updated
-
-
 class FileStore(object):
     """Represents a local file-based store for SCEA data."""
 

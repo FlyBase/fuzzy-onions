@@ -30,10 +30,10 @@ from click_shell import shell
 from IPython import embed
 
 from fbcam.fuzzyonions import __version__
-from fbcam.fuzzyonions.scea import FileStore, CombinedFileStore
 from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 from fbcam.fuzzyonions.curation import CuratedDatasetFactory
+from fbcam.fuzzyonions.store import store, Store
 from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 
 prog_name = "fuzzyonions"
@@ -53,10 +53,9 @@ class SourceStore(IntFlag):
 
 class FzoContext(object):
 
-    def __init__(self, config_file, source, no_exclude=False):
+    def __init__(self, config_file, no_exclude=False):
         self._config_file = config_file
         self._config = ConfigParser()
-        self._source = source
         self._no_exclude = no_exclude
 
         self.reset()
@@ -90,19 +89,7 @@ class FzoContext(object):
     @property
     def raw_store(self):
         if not self._store:
-            prod_dir = self._config.get('store', 'production', fallback=None)
-            staging_dir = self._config.get('store', 'staging', fallback=None)
-
-            if prod_dir and staging_dir and self._source == SourceStore.BOTH:
-                self._store = CombinedFileStore(prod_dir, staging_dir)
-            elif prod_dir and (self._source == SourceStore.BOTH or
-                               self._source == SourceStore.PRODUCTION):
-                self._store = FileStore(prod_dir)
-            elif staging_dir and (self._source == SourceStore.BOTH or
-                                  self._source == SourceStore.STAGING):
-                self._store = FileStore(staging_dir, staging=True)
-            else:
-                raise Exception("Invalid store configuration.")
+            self._store = Store(self._config)
         return self._store
 
     @property
@@ -164,15 +151,11 @@ class FzoContext(object):
 @click.option('--config', '-c', type=click.Path(exists=False),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
               help="Path to an alternative configuration file.")
-@click.option('--production', '-p', is_flag=True, default=False,
-              help="Only use data from production server.")
-@click.option('--staging', '-s', is_flag=True, default=False,
-              help="Only use data from staging server.")
 @click.option('--no-excluded-cell-types', '-n', 'no_exclude',
               is_flag=True, default=False,
               help="Do not exclude any cell types.")
 @click.pass_context
-def main(ctx, config, production, staging, no_exclude):
+def main(ctx, config, no_exclude):
     """Helper scripts for the FlyBase scRNAseq project."""
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
@@ -181,69 +164,11 @@ def main(ctx, config, production, staging, no_exclude):
     if not '/' in config and not exists(config):
         config = '{}/{}'.format(click.get_app_dir('fuzzyonions'), config)
 
-    if production and staging:
-        raise click.ClickException("Cannot use both --production and "
-                                   "--staging.")
-    if production:
-        source = SourceStore.PRODUCTION
-    elif staging:
-        source = SourceStore.STAGING
-    else:
-        source = SourceStore.BOTH
-
-    context = FzoContext(config, source, no_exclude)
+    context = FzoContext(config, no_exclude)
     ctx.obj = context
 
     if not context.has_config:
         ctx.invoke(conf)
-
-
-@main.command()
-@click.argument('dsid')
-@click.pass_obj
-def download(ctx, dsid):
-    """Download a SCEA dataset.
-    
-    This command fetches the data for the specified dataset from the
-    SCEA server.
-    """
-
-    ds = ctx.raw_store.get(dsid)
-    if ds:
-        ctx.tracker.add_dataset(dsid, ds.staging)
-        ctx.tracker.save()
-
-
-@main.command('list')
-@click.pass_obj
-def list_datasets(ctx):
-    """List the datasets in the local store."""
-
-    n = len(ctx.raw_store.datasets)
-    if n == 0:
-        print("No local datasets available.")
-        return
-
-    print(f"{n} dataset(s) available:")
-    for d in ctx.raw_store.datasets:
-        print(f"{d.id}")
-
-
-@main.command()
-@click.pass_obj
-def update(ctx):
-    """Update all locally available datasets.
-    
-    This command checks whether datasets from the SCEA staging server
-    have been moved to production and if so, updates the local cache
-    with the production files.
-    """
-
-    upds = ctx.raw_store.update()
-    for dsid in upds:
-        ctx.tracker.promote_to_production(dsid)
-    if len(upds) > 0:
-        ctx.tracker.save()
 
 
 @main.command()
@@ -372,6 +297,7 @@ def conf(ctx):
         ctx.reset(options=defaults)
 
 
+main.add_command(store)
 main.add_command(explorer)
 main.add_command(tracker)
 
