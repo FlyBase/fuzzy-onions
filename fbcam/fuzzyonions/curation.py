@@ -22,6 +22,10 @@
 import json
 import logging
 import pandas
+import click
+from click_shell.core import make_click_shell
+
+from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 
 
 class CuratedDataset(object):
@@ -494,13 +498,96 @@ class CuratedDataset(object):
         return ('TODO: [as needed]', 'TODO: [as needed]')
 
 
-class CuratedDatasetFactory(object):
+class CurationContext(object):
 
-    def __init__(self, store, no_exclude=False):
+    def __init__(self, config, store, no_exclude):
         self._store = store
         self._no_exclude = no_exclude
+        self._proformae_dir = config.get('curation', 'proformae')
 
     def from_specfile(self, specfile):
         spec = json.load(specfile)
         dataset = self._store.get(spec['dataset_id'])
         return CuratedDataset(spec, dataset, self._no_exclude)
+
+    def get_proforma_builder(self, output):
+        return ProformaGeneratorBuilder(self._proformae_dir, output)
+
+
+@click.group(invoke_without_command=True)
+@click.option('--no-excluded-cell-types', '-n', 'no_exclude',
+              is_flag=True, default=False,
+              help="Do not exclude any cell types.")
+@click.pass_context
+def curate(ctx, no_exclude):
+    """Access the curation commands."""
+
+    ctx.obj = CurationContext(ctx.obj.config, ctx.obj.raw_store, no_exclude)
+    if not ctx.invoked_subcommand:
+        shell = make_click_shell(ctx, prompt="fzo-curate> ")
+        shell.cmdloop()
+
+
+@curate.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--with-reads/--without-reads', default=True,
+              help="Extract number of reads per biosample.")
+@click.option('--text', '-t', is_flag=True, default=False,
+              help="Produce a text output instead of JSON.")
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def extract(ctx, specfile, with_reads, text, output):
+    """Extract curation data from a dataset."""
+
+    ds = ctx.from_specfile(specfile)
+    ds.extract(with_reads)
+    if text:
+        ds.to_text(output)
+    else:
+        ds.to_json(output)
+
+
+@curate.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.option('--header', '-H', is_flag=True, default=False,
+              help="Writes an uncommented header line.")
+@click.pass_obj
+def sumexpr(ctx, specfile, output, header):
+    """Summarize expression data from a dataset."""
+
+    ds = ctx.from_specfile(specfile)
+    result = ds.summarise_expression()
+    if not header:
+        # Write a commented header line (needed for harvdev processing)
+        output.write('#genes\t')
+        output.write('\t'.join(result.columns))
+        output.write('\n')
+    result.to_csv(output, sep='\t', header=header, float_format='%.6f')
+
+
+@curate.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def proforma(ctx, specfile, output):
+    """Generate a proforma for a dataset."""
+
+    ds = ctx.from_specfile(specfile)
+    builder = ctx.get_proforma_builder(output)
+    ds.to_proforma(builder)
+
+
+@curate.command()
+@click.argument('specfile', type=click.File('r'))
+@click.pass_obj
+def fixscea(ctx, specfile):
+    """Generate correction files for the SCEA."""
+
+    ds = ctx.from_specfile(specfile)
+    ds.generate_scea_files('experiment-design.with-fbids.tsv',
+                           'celltypes-fbterms.tsv')
+

@@ -19,7 +19,6 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from enum import IntFlag
 import logging
 from os import getenv
 from os.path import exists
@@ -31,8 +30,7 @@ from IPython import embed
 
 from fbcam.fuzzyonions import __version__
 from fbcam.fuzzyonions.explorer import explorer
-from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
-from fbcam.fuzzyonions.curation import CuratedDatasetFactory
+from fbcam.fuzzyonions.curation import curate
 from fbcam.fuzzyonions.store import store, Store
 from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 
@@ -47,10 +45,9 @@ This program is released under the terms of the 1-clause BSD licence.
 
 class FzoContext(object):
 
-    def __init__(self, config_file, no_exclude=False):
+    def __init__(self, config_file):
         self._config_file = config_file
         self._config = ConfigParser()
-        self._no_exclude = no_exclude
 
         self.reset()
 
@@ -59,12 +56,15 @@ class FzoContext(object):
         return self._has_config
 
     @property
+    def config(self):
+        return self._config
+
+    @property
     def config_file(self):
         return self._config_file
 
     def reset(self, options=None):
         self._store = None
-        self._curation_factory = None
         self._tracker = None
 
         self._config.clear()
@@ -89,17 +89,6 @@ class FzoContext(object):
             self._tracker = DatasetTracker(self._config)
         return self._tracker
 
-    @property
-    def proformae_folder(self):
-        return self._config.get('proformae', 'directory')
-
-    @property
-    def curation_factory(self):
-        if self._curation_factory is None:
-            self._curation_factory = CuratedDatasetFactory(self.raw_store,
-                                                           self._no_exclude)
-        return self._curation_factory
-
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
@@ -107,11 +96,8 @@ class FzoContext(object):
 @click.option('--config', '-c', type=click.Path(exists=False),
               default='{}/config'.format(click.get_app_dir('fuzzyonions')),
               help="Path to an alternative configuration file.")
-@click.option('--no-excluded-cell-types', '-n', 'no_exclude',
-              is_flag=True, default=False,
-              help="Do not exclude any cell types.")
 @click.pass_context
-def main(ctx, config, no_exclude):
+def main(ctx, config):
     """Helper scripts for the FlyBase scRNAseq project."""
 
     logging.basicConfig(format="fzo: %(module)s: %(message)s",
@@ -120,7 +106,7 @@ def main(ctx, config, no_exclude):
     if not '/' in config and not exists(config):
         config = '{}/{}'.format(click.get_app_dir('fuzzyonions'), config)
 
-    context = FzoContext(config, no_exclude)
+    context = FzoContext(config)
     ctx.obj = context
 
     if not context.has_config:
@@ -134,98 +120,6 @@ def ipython(ctx):
 
     store = ctx.raw_store
     embed()
-
-
-@main.command()
-@click.argument('specfile', type=click.File('r'))
-@click.option('--with-reads/--without-reads', default=True,
-              help="Extract number of reads per biosample.")
-@click.option('--text', '-t', is_flag=True, default=False,
-              help="Produce a text output instead of JSON.")
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
-@click.pass_obj
-def extract(ctx, specfile, with_reads, text, output):
-    """Extract curation data from a dataset.
-    
-    This command expects a JSON-formatted file describing how to extract
-    from a dataset the bits of data that are required for FlyBase
-    curation. It produces a similar JSON file enriched with the
-    extracted values.
-    
-    \b
-    Sample JSON input file:
-    {
-        "symbol": <symbol to use in FlyBase>
-        "dataset_id": <SCEA dataset ID>,
-        "cell_types_column": <name of the column for cell types>,
-        "excluded_cell_types": <list of cell types to ignore>,
-        "conditions": <list of columns used to assign cells to samples>,
-        "samples": [
-            {
-                "symbol": <suffix to add to the dataset-level symbol>,
-                "selectors": <list of values used to select cells>
-            },
-            <repeat for as many samples as needed>
-        ]
-    }
-    """
-
-    ds = ctx.curation_factory.from_specfile(specfile)
-    ds.extract(with_reads)
-    if text:
-        ds.to_text(output)
-    else:
-        ds.to_json(output)
-
-
-@main.command()
-@click.argument('specfile', type=click.File('r'))
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
-@click.option('--header', '-H', is_flag=True, default=False,
-              help="Writes an uncommented header line.")
-@click.pass_obj
-def sumexpr(ctx, specfile, output, header):
-    """Summarize expression data from a dataset.
-    
-    This command expects a JSON file similar to the one used by the
-    'extract' command. It computes a per-cell type summarised gene
-    expression matrix from a dataset.
-    """
-
-    ds = ctx.curation_factory.from_specfile(specfile)
-    result = ds.summarise_expression()
-    if not header:
-        # Write a commented header line (needed for harvdev processing)
-        output.write('#genes\t')
-        output.write('\t'.join(result.columns))
-        output.write('\n')
-    result.to_csv(output, sep='\t', header=header, float_format='%.6f')
-
-
-@main.command()
-@click.argument('specfile', type=click.File('r'))
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
-@click.pass_obj
-def proforma(ctx, specfile, output):
-    """Generate a proforma for a dataset."""
-
-    builder = ProformaGeneratorBuilder(ctx.proformae_folder, output)
-    ds = ctx.curation_factory.from_specfile(specfile)
-    ds.to_proforma(builder)
-
-
-@main.command()
-@click.argument('specfile', type=click.File('r'))
-@click.pass_obj
-def fixscea(ctx, specfile):
-    """Generate correction files for the SCEA."""
-
-    ds = ctx.curation_factory.from_specfile(specfile)
-    ds.generate_scea_files('experiment-design.with-fbids.tsv',
-                           'celltypes-fbterms.tsv')
 
 
 @main.command()
@@ -248,13 +142,14 @@ def conf(ctx):
 
         defaults = {
             'store': {'production': store_dir},
-            'proformae': {'directory': proformae_dir},
+            'curation': {'proformae': proformae_dir},
             'tracking': {'file': '{}/track.json'.format(click.get_app_dir('fuzzyonions'))}
             }
         ctx.reset(options=defaults)
 
 
 main.add_command(store)
+main.add_command(curate)
 main.add_command(explorer)
 main.add_command(tracker)
 
