@@ -1497,18 +1497,12 @@ directories:
 
 ```ini
 [store]
-production: /Users/<your_username>/scRNAseq/raw
+production: /Users/<your_username>/scRNAseq/raw/production
+staging: /users/<your_username>/scRNAseq/raw/staging
 
-[proformae]
-directory: /Users/<your_username>/SVN_folders/proformae
+[curation]
+proformae: /Users/<your_username>/SVN_folders/proformae
 ```
-
-Replace the `production` key with a `staging` key to instruct
-Fuzzy-onions to fetch the datasets from the EBI‘s staging server. You
-may also use both the `production` and the `staging` key to fetch
-datasets from both servers; in that case, Fuzzy-onions will look for a
-dataset first on the production server, then on the staging server if
-the dataset was not found on the production server.
 
 
 ## Fetching and exploring a dataset
@@ -1521,7 +1515,7 @@ example.
 Download the dataset with Fuzzy-onions:
 
 ```sh
-$ fzo download E-MTAB-8698
+$ fzo store download E-MTAB-8698
 ```
 
 [As described previously][Data files], you then need to explore the
@@ -1893,11 +1887,11 @@ file is irrelevant and has no meaning for Fuzzy-onions.
 
 ### Correction files for EBI curators
 
-Use the `fzo fixscea` command to generate the files that need to be sent
-back to the EBI curators:
+Use the `fzo curate fixscea` command to generate the files that need to be
+sent back to the EBI curators:
 
 ```sh
-$ fzo fixscea E-MTAB-8698.json
+$ fzo curate fixscea E-MTAB-8698.json
 ```
 
 This will generate two files:
@@ -1915,10 +1909,10 @@ Send those files to the EBI curators (Nancy) by e-mail.
 
 ### Pre-filled proforma
 
-Use the `fzo proforma` command to generate a proforma for the dataset:
+Use the `fzo curate proforma` command to generate a proforma for the dataset:
 
 ```sh
-$ fzo proforma -o proforma.coll E-MTAB-8698.json
+$ fzo curate proforma -o proforma.coll E-MTAB-8698.json
 ```
 
 The resulting `proforma.coll` file will be pre-filled with all the
@@ -1932,10 +1926,10 @@ it checked by Peeves, then submit it for loading.
 
 ### Summarised expression table
 
-Use the `fzo sumexpr` command to generate the summarised expression table:
+Use the `fzo curate sumexpr` command to generate the summarised expression table:
 
 ```sh
-$ fzo sumexpr -o <recordname>.scrnaseq.tsv E-MTAB-8698
+$ fzo curate sumexpr -o <recordname>.scrnaseq.tsv E-MTAB-8698
 ```
 
 Make sure the output file is named according to the record submitted
