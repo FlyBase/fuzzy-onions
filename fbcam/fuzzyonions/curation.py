@@ -28,6 +28,141 @@ from click_shell.core import make_click_shell
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder
 
 
+class SourceDataset(object):
+    """A SCEA dataset that is used as a source for a FlyBase dataset."""
+
+    def __init__(self, spec, store):
+        self._accession = spec['accession']
+        self._ct_column = spec.get('cell_types_column', None)
+        self._input_ct_column = spec.get('input_cell_types_column', None)
+        self._simple_ct = spec.get('simplified_cell_types', None)
+        self._corrections = []
+        for corrset in spec.get('corrections', []):
+            self._corrections.append(CorrectionSet(corrset))
+        self._data = store.get(self._accession)
+
+    @property
+    def accession(self):
+        """The SCEA accession number for this dataset."""
+
+        return self._accession
+
+    @property
+    def cell_type_column(self):
+        """The name of the column containing output cell types."""
+
+        return self._ct_column
+
+    @property
+    def has_cell_types(self):
+        """Indicate whether cell type annotations are available."""
+
+        return self._ct_column is not None
+
+    @property
+    def input_cell_type_column(self):
+        """The name of the column containing input cell types."""
+
+        return self._input_ct_column
+
+    @property
+    def data(self):
+        """The object representing the SCEA raw data files."""
+
+        return self._data
+
+    def get_simplified_cell_type(self, cell_type):
+        """Get a simplified cell type name.
+        
+        Given an original cell type name, this method returns a
+        simplified name that may be used when generating dataset
+        symbols.
+        """
+
+        if self._simple_ct is not None:
+            return self._simple_ct.get(cell_type, cell_type)
+        return cell_type
+
+    def get_corrections(self, target):
+        """Get all correction sets applicable to the specified target."""
+
+        return [c for c in self._corrections if c.valid_for(target)]
+
+    def apply_corrections(self, only_new=False, target='internal'):
+        """Apply correction sets for the specified target.
+        
+        :param only_new: if True, only apply corrections that do not
+            modify existing columns
+        :param: target: intended target for the corrections
+        :return: the number of applied correction sets
+        """
+
+        expd = self.data.experiment_design
+        n = 0
+        for corrset in self.get_corrections(target):
+            dest = corrset.destination
+            if dest is not None:
+                # We are adding a new column
+                expd[corrset.destination] = pandas.Series(dtype='string')
+            else:
+                # We modify an existing column
+                if only_new:
+                    continue
+                dest = corrset.source
+
+            for old, new, _ in corrset.values:
+                if len(new) == 0:
+                    new = pandas.NA
+                expd.loc[expd[corrset.source] == old, dest] = new
+
+            n += 1
+
+        return n
+
+
+class CorrectionSet(object):
+    """A set of corrections to apply to the ExperimentDesign table."""
+
+    def __init__(self, data):
+        self._target = data.get('target', 'both')
+        self._source = data['source']
+        self._destination = data.get('destination', None)
+        self._values = data['values']
+
+    @property
+    def source(self):
+        """The name of the column to correct."""
+
+        return self._source
+
+    @property
+    def destination(self):
+        """The name of the column to write corrected data to.
+        
+        If None, the corrections are intended to be applied directly
+        to the source column.
+        """
+
+        return self._destination
+
+    @property
+    def values(self):
+        """The corrections proper.
+        
+        This is a list of tuples, where each tuple contains:
+        - the value to correct in the source column;
+        - the corrected value to write to the destination column;
+        - an optional comment.
+        """
+
+        return self._values
+
+    def valid_for(self, target):
+        """Indicate whether the set is applicable to a target."""
+
+        return self._target in [target, 'both']
+
+
 class CuratedDataset(object):
     """Represents a scRNAseq dataset with associated curation data."""
 
@@ -522,6 +657,10 @@ class CurationContext(object):
     def get_proforma_builder(self, output):
         return ProformaGeneratorBuilder(self._proformae_dir, output)
 
+    def source_dataset_from_specfile(self, specfile):
+        spec = json.load(specfile)
+        return SourceDataset(spec, self._store)
+
 
 @click.group(invoke_without_command=True)
 @click.option('--no-excluded-cell-types', '-n', 'no_exclude',
@@ -599,7 +738,26 @@ def proforma(ctx, specfile, output):
 def fixscea(ctx, specfile):
     """Generate correction files for the SCEA."""
 
-    ds = ctx.from_specfile(specfile)
-    ds.generate_scea_files('experiment-design.with-fbids.tsv',
-                           'celltypes-fbterms.tsv')
+    ds = ctx.source_dataset_from_specfile(specfile)
+    new_expd_file = 'experiment-design.with-fbids.tsv'
+    ct_file = 'celltypes-fbterms.tsv'
+
+    if ds.apply_corrections(only_new=True, target='scea') > 0:
+        ds.data.experiment_design.to_csv(new_expd_file, sep='\t')
+
+        ct_column = ds.cell_type_column
+        if ct_column is None:
+            ct_column = ds.input_cell_type_column
+            if ct_column is None:
+                logging.warn("No cell type informations to correct")
+                return
+
+        for corrset in ds.get_corrections('scea'):
+            if corrset.source != ct_column:
+                continue
+
+            with open(ct_file, 'w') as f:
+                f.write('Original term\tProposed new term\tComment\n')
+                for old, new, comment in corrset.values:
+                    f.write(f'{old}\t{new}\t{comment}\n')
 
