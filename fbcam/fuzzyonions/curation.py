@@ -325,7 +325,92 @@ class DatasetBase(object):
         g.write_field('LC2b', self.data_type)
 
 
-class Project(DatasetBase):
+class ProjectContainer(DatasetBase):
+
+    def __init__(self, spec, parent=None):
+        super().__init__(spec)
+
+        self._parent = parent
+
+        self._subprojects = []
+        for subproject in spec.get('subprojects', []):
+            self._subprojects.append(ProjectContainer(subproject, self))
+
+        self._samples = []
+        for sample in spec.get('samples', []):
+            self._samples.append(Biosample(sample, self))
+
+    @property
+    def subprojects(self):
+        return self._subprojects
+
+    @property
+    def has_subprojects(self):
+        return len(self.subprojects) > 0
+
+    @property
+    def samples(self):
+        return self._samples
+
+    @property
+    def has_samples(self):
+        return len(self.samples) > 0
+
+    @property
+    def project(self):
+        return self._parent
+
+    @property
+    def is_top_project(self):
+        return self._parent is None
+
+    @property
+    def top_project(self):
+        p = self
+        while not p.is_top_project:
+            p = self.project
+        return p
+
+    @property
+    def symbol(self):
+        if self.is_top_project:
+            return self._symbol
+        else:
+            return self.project.symbol + '_' + self._symbol
+
+    @property
+    def entity_type(self):
+        return 'project ; FBcv:0003023'
+
+    @property
+    def data_type(self):
+        return 'transcriptome ; FBcv:0003034'
+
+    @property
+    def other_species(self):
+        species = []
+        for sample in self.get_all_samples():
+            species.extend(sample.other_species)
+        return species
+
+    def get_all_samples(self):
+        if self.has_samples:
+            return self.samples
+        else:
+            samples = []
+            for subproject in self.subprojects:
+                samples.extend(subproject.get_all_samples())
+            return samples
+
+    def make_sub_proformae(self, g):
+        for subproject in self.subprojects:
+            subproject.to_proforma(g)
+
+        for sample in self.samples:
+            sample.to_proforma(g)
+
+
+class Project(ProjectContainer):
 
     def __init__(self, spec, min_cluster_size=0):
         super().__init__(spec)
@@ -335,22 +420,6 @@ class Project(DatasetBase):
         self._lab = SourceLab(spec.get('creator', {}))
 
         self._sources = []
-
-        self._samples = []
-        for sample in spec.get('samples', []):
-            self._samples.append(Biosample(sample, self))
-
-        self._subprojects = []
-        for subproject in spec.get('subprojects', []):
-            self._subprojects.append(Subproject(subproject, self))
-
-    @property
-    def entity_type(self):
-        return 'project ; FBcv:0003023'
-
-    @property
-    def data_type(self):
-        return 'transcriptome ; FBcv:0003034'
 
     @property
     def sources(self):
@@ -364,21 +433,6 @@ class Project(DatasetBase):
         return species
 
     @property
-    def subprojects(self):
-        return self._subprojects
-
-    @property
-    def has_subprojects(self):
-        return len(self._subprojects) > 0
-
-    @property
-    def samples(self):
-        return self._samples
-
-    def has_samples(self):
-        return len(self._samples) > 0
-
-    @property
     def reference(self):
         return self._reference
 
@@ -389,15 +443,6 @@ class Project(DatasetBase):
     @property
     def min_cluster_size(self):
         return self._min_cluster_size
-
-    def get_all_samples(self):
-        if self.has_samples:
-            return self.samples
-        else:
-            samples = []
-            for subproject in self.subprojects:
-                samples.extend(subproject.get_all_samples())
-            return samples
 
     def extract_reads(self):
         sample_by_cell_id = {}
@@ -492,86 +537,9 @@ class Project(DatasetBase):
         g.write_field('LC8c', f'[{self.lab.name}]({self.lab.url})')
         g.write_separator()
 
-        for subproject in self.subprojects:
-            subproject.to_proforma(g)
-
-        for sample in self.samples:
-            sample.to_proforma(g)
+        self.make_sub_proformae(g)
 
         g.write_terminator()
-
-
-class Subproject(DatasetBase):
-
-    def __init__(self, spec, parent):
-        super().__init__(spec)
-        self._parent = parent
-
-        self._samples = []
-        for sample in spec.get('samples', []):
-            self._samples.append(Biosample(sample, self))
-
-        self._subprojects = []
-        for subproject in spec.get('subprojects', []):
-            self._subprojects.append(Subproject(subproject, self))
-
-    @property
-    def symbol(self):
-        return self.project.symbol + '_' + self._symbol
-
-    @property
-    def entity_type(self):
-        return 'project ; FBcv:0003023'
-
-    @property
-    def data_type(self):
-        return 'transcriptome ; FBcv:0003034'
-
-    @property
-    def project(self):
-        return self._parent
-
-    @property
-    def subprojects(self):
-        return self._subprojects
-
-    @property
-    def has_subprojects(self):
-        return len(self._subprojects) > 0
-
-    @property
-    def samples(self):
-        return self._samples
-
-    @property
-    def has_samples(self):
-        return len(self._samples) > 0
-
-    @property
-    def other_species(self):
-        species = []
-        for sample in self.get_all_samples():
-            species.extend(sample.other_species)
-        return species
-
-    def get_all_samples(self):
-        if self.has_samples:
-            return self.samples
-        else:
-            samples = []
-            for subproject in self.subprojects:
-                samples.extend(subproject.get_all_samples())
-            return samples
-
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
-        g.write_field('LC3b', self.project.symbol)
-
-        for subproject in self.subprojects:
-            subproject.to_proforma(g)
-
-        for sample in self.samples:
-            sample.to_proforma(g)
 
 
 class Biosample(DatasetBase):
@@ -622,10 +590,7 @@ class Biosample(DatasetBase):
 
     @property
     def top_project(self):
-        parent = self.project
-        while hasattr(parent, 'project'):
-            parent = self.project
-        return parent
+        return self.project.top_project
 
     @property
     def is_single_nucleus(self):
@@ -676,7 +641,7 @@ class Biosample(DatasetBase):
         while True:
             if cell_type in p._excluded_ct:
                 return True
-            if hasattr(p, 'project'):
+            if p.project is not None:
                 p = p.project
             else:
                 return False
