@@ -823,7 +823,7 @@ class Result(DatasetBase):
         sample = self.assay.sample
 
         if not sample.source.has_cell_types:
-            return None
+            return []
 
         clusters = []
         for cell_type in sample.subset[sample.source.cell_type_column].dropna().unique():
