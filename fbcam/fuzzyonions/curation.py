@@ -970,10 +970,11 @@ class Cluster(DatasetBase):
 
 class CurationContext(object):
 
-    def __init__(self, config, store, no_exclude, min_cluster_size):
+    def __init__(self, config, store, no_exclude, min_cluster_size, with_reads):
         self._store = store
         self._no_exclude = no_exclude
         self._min_cluster = min_cluster_size
+        self._with_reads = with_reads
         self._proformae_dir = config.get('curation', 'proformae')
 
     def get_proforma_builder(self, output):
@@ -998,6 +999,9 @@ class CurationContext(object):
             s = self.source_dataset_from_specfile(source)
             s.apply_corrections()
             dataset.sources.append(s)
+
+        if self._with_reads:
+            dataset.extract_reads()
 
         return dataset
 
@@ -1024,12 +1028,14 @@ class CurationContext(object):
               help="Do not exclude any cell types.")
 @click.option('--min-cluster-size', '-m', default=0,
               help="Exclude cluster with less cells than specified.")
+@click.option('--with-reads/--without-reads', default=True,
+              help="Extract number of reads per biosample.")
 @click.pass_context
-def curate(ctx, no_exclude, min_cluster_size):
+def curate(ctx, no_exclude, min_cluster_size, with_reads):
     """Access the curation commands."""
 
     ctx.obj = CurationContext(ctx.obj.config, ctx.obj.raw_store, no_exclude,
-                              min_cluster_size)
+                              min_cluster_size, with_reads)
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-curate> ")
         shell.cmdloop()
@@ -1037,23 +1043,18 @@ def curate(ctx, no_exclude, min_cluster_size):
 
 @curate.command()
 @click.argument('specfile', type=click.File('r'))
-@click.option('--with-reads/--without-reads', default=True,
-              help="Extract number of reads per biosample.")
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
-def extract(ctx, specfile, with_reads, output):
+def extract(ctx, specfile, output):
     """Extract curation data from a dataset."""
 
     ds = ctx.dataset_from_specfile(specfile)
-    if with_reads:
-        ds.extract_reads()
 
     for sample in ds.get_all_samples():
         output.write(f"Sample {sample.symbol}\n")
         output.write(f"  Cells: {sample.assay.result.count}\n")
-        if with_reads:
-            output.write(f"  Reads: {sample.assay.count}\n")
+        output.write(f"  Reads: {sample.assay.count}\n")
         for cluster in sample.assay.result.clusters:
             output.write(f"    {cluster.cell_type}: {cluster.count}\n")
 
@@ -1087,7 +1088,6 @@ def proforma(ctx, specfile, output):
     """Generate a proforma for a dataset."""
 
     ds = ctx.dataset_from_specfile(specfile)
-    ds.extract_reads()
     builder = ctx.get_proforma_builder(output)
     g = builder.get_generator(proforma_type=ProformaType.PUB_MINI)
     g.write_header()
