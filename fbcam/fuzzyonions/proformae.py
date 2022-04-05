@@ -219,6 +219,10 @@ class ProformaGenerator(object):
         self._fp.write('!!!!!!!!!!!!!!!!!! END OF RECORD FOR THIS PUBLICATION !!!!!!!!!!!!!!!!!!!!\n')
 
     def write_field(self, fid, value=None):
+        if value is not None and len(str(value)) == 0:
+            # Do not output the field if it is explicitly empty
+            return
+
         self._fp.write(self.fields[fid])
         if value is not None:
             self._fp.write(str(value))
