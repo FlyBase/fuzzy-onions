@@ -955,7 +955,7 @@ class CurationContext(object):
         dataset.feed_data(self._store)
         return dataset
 
-    def dataset_from_specfile(self, specfile):
+    def dataset_from_specfile(self, specfile, with_reads=True):
         spec = json.load(specfile)
         self._expand_defaults(spec)
         dataset = Project(spec, self._min_cluster)
@@ -965,7 +965,7 @@ class CurationContext(object):
             s.apply_corrections()
             dataset.sources.append(s)
 
-        if self._with_reads:
+        if self._with_reads and with_reads:
             dataset.extract_reads()
 
         return dataset
@@ -1034,7 +1034,7 @@ def extract(ctx, specfile, output):
 def sumexpr(ctx, specfile, output, header):
     """Summarize expression data from a dataset."""
 
-    ds = ctx.dataset_from_specfile(specfile)
+    ds = ctx.dataset_from_specfile(specfile, with_reads=False)
     result = ds.summarise_expression()
     if not header:
         # Write a commented header line (needed for harvdev processing)
