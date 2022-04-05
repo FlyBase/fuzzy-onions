@@ -559,7 +559,7 @@ class Biosample(DatasetBase):
         self._fbdv = spec.get('stage', None)
         self._sex = spec.get('sex', None)
 
-        self._fbcv = spec.get('cv_terms', []).get('fbcv_sample', [])
+        self._fbcv = spec.get('cv_terms', {}).get('fbcv_sample', [])
 
         self._conditions = spec.get('conditions')
         self._selectors = spec.get('selectors')
