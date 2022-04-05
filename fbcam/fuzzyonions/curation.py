@@ -550,6 +550,8 @@ class Biosample(DatasetBase):
     def __init__(self, spec, parent):
         super().__init__(spec)
         self._project = parent
+        if self._desc is None:
+            self._desc = ""
 
         self._is_sn = spec.get('is_single_nucleus', 'no') == 'yes'
 
@@ -700,6 +702,8 @@ class Assay(DatasetBase):
         else:
             self._title = "Single-cell RNA-seq of " + sample.title
 
+        self._desc = ""
+
         self._tech_ref = spec.get('technical_reference')
         self._biol_ref = spec.get('biological_reference')
         self._fbcv = spec.get('cv_terms', {}).get('fbcv_assay')
@@ -769,6 +773,7 @@ class Result(DatasetBase):
         self._assay = assay
         self._title = "Clustering analysis of " + assay.sample.title
         self._clusters = None
+        self._desc = ""
 
     @property
     def symbol(self):
@@ -847,6 +852,7 @@ class Cluster(DatasetBase):
         self._count = count
         self._result = result
         self._simple_ct = None
+        self._desc = ""
         self.expression = {}
         self.presence = {}
 
