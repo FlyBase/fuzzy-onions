@@ -319,7 +319,10 @@ class DatasetBase(object):
         g.write_header()
         g.write_field('LC1f', 'new')
         g.write_field('LC1a', self.symbol)
-        g.write_field('LC6g', self.title[0].upper() + self.title[1:])
+        if self.title is not None and len(self.title) > 0:
+            g.write_field('LC6g', self.title[0].upper() + self.title[1:])
+        else:
+            g.write_field('LC6g', self.title)
         g.write_field('LC6a', self.description)
         g.write_field('LC2a', self.entity_type)
         g.write_field('LC2b', self.data_type)
