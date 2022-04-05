@@ -158,35 +158,6 @@ class Dataset(object):
             os.remove(os.path.join(self._directory, file))
         os.rmdir(self._directory)
 
-    def apply_corrections(self, corrections, only_new=False, target='internal'):
-        """Update the experiment design table with custom corrections."""
-
-        expd = self.experiment_design
-        n = 0
-        for correction in corrections:
-            if 'target' in correction and correction['target'] != target:
-                continue
-
-            src = correction['source']
-            if 'destination' in correction:
-                dest = correction['destination']
-                # We are adding a new column
-                expd[dest] = pandas.Series(dtype='string')
-            else:
-                # We modify an existing column
-                if only_new:
-                    continue
-                dest = src
-
-            for old, new, _ in correction['values']:
-                if len(new) == 0:
-                    new = pandas.NA
-                expd.loc[expd[src] == old, dest] = new
-
-            n += 1
-
-        return n
-
     def _get_expression_matrix_fullname(self, raw=True):
         """Gets the full pathname to the expression matrix file."""
 
