@@ -1020,8 +1020,9 @@ class CurationContext(object):
 
         return dataset
 
-    def _expand_defaults(self, spec, defaults={}):
-        defaults = spec.get('defaults', defaults)
+    def _expand_defaults(self, spec, parent={}):
+        defaults = spec.get('defaults', {})
+        self._copy_dict(parent, defaults)
 
         for subproject in spec.get('subprojects', []):
             self._expand_defaults(subproject, defaults)
