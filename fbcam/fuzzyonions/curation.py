@@ -262,6 +262,10 @@ class DatasetBase(object):
         return self._go_bp
 
     @property
+    def so_terms(self):
+        return self._so
+
+    @property
     def fbcv(self):
         return self._fbcv
 
@@ -296,36 +300,6 @@ class DatasetBase(object):
     @property
     def count_label(self):
         return None
-
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
-        g.write_field('LC13a', self.go_cellular_components)
-        g.write_field('LC13b', self.go_molecular_functions)
-        g.write_field('LC13c', self.go_biological_processes)
-        g.write_field('LC13d', self._so)
-        g.write_field('LC4a', self.species)
-        g.write_field('LC4i', '\n'.join(self.other_species))
-        g.write_field('LC6d', 'N')
-        if self.has_count:
-            g.write_field('LC6e', self.count)
-            g.write_field('LC6f', self.count_label)
-        g.write_field('LC11m', self.fbcv)
-        g.write_field('LC11a', self.collection_protocol)
-        g.write_field('LC6b', self.preparation_protocol)
-        g.write_field('LC11c', self.assay_protocol)
-        g.write_field('LC11e', self.analysis_protocol)
-
-    def make_proforma_header(self, g):
-        g.write_header()
-        g.write_field('LC1f', 'new')
-        g.write_field('LC1a', self.symbol)
-        if self.title is not None and len(self.title) > 0:
-            g.write_field('LC6g', self.title[0].upper() + self.title[1:])
-        else:
-            g.write_field('LC6g', self.title)
-        g.write_field('LC6a', self.description)
-        g.write_field('LC2a', self.entity_type)
-        g.write_field('LC2b', self.data_type)
 
 
 class ProjectContainer(DatasetBase):
@@ -404,13 +378,6 @@ class ProjectContainer(DatasetBase):
             for subproject in self.subprojects:
                 samples.extend(subproject.get_all_samples())
             return samples
-
-    def make_sub_proformae(self, g):
-        for subproject in self.subprojects:
-            subproject.to_proforma(g)
-
-        for sample in self.samples:
-            sample.to_proforma(g)
 
 
 class Project(ProjectContainer):
@@ -530,20 +497,6 @@ class Project(ProjectContainer):
 
         return result
 
-    def to_proforma(self, g):
-        super().to_proforma(g)
-
-        g.write_field('LC7a', 'The EMBL-EBI\'s Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.')
-        for source in self.sources:
-            g.write_field('LC99a', source.accession)
-            g.write_field('LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets')
-        g.write_field('LC8c', f'[{self.lab.name}]({self.lab.url})')
-        g.write_separator()
-
-        self.make_sub_proformae(g)
-
-        g.write_terminator()
-
 
 class Biosample(DatasetBase):
 
@@ -651,29 +604,6 @@ class Biosample(DatasetBase):
             else:
                 return False
 
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
-
-        g.write_field('LC3', self.project.symbol)
-        g.write_field('LC4a', self.species)
-        g.write_field('LC4i', '\n'.join(self.other_species))
-        g.write_field('LC4h', self.strain)
-        g.write_field('LC4f', self.genotype)
-        g.write_field('LC4g', self._get_tap_statement())
-        # TODO: LC12a, LC12b
-        g.write_field('LC6d', 'N')
-        g.write_field('LC11m', self.fbcv)
-        g.write_field('LC11a', self.collection_protocol)
-
-        g.write_separator()
-        self.assay.to_proforma(g)
-
-    def _get_tap_statement(self):
-        t = self.developmental_stage
-        if self.sex is not None:
-            t += ' | ' + self.sex
-        return f'<e><t>{t}<a>{self.anatomical_part}<s><note>'
-
     def _get_subset(self):
         subset = self.source.data.experiment_design
         if self._conditions:
@@ -751,21 +681,6 @@ class Assay(DatasetBase):
     def result(self):
         return self._result
 
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
-
-        g.write_field('LC3', self.sample.project.symbol)
-        g.write_field('LC14a', self.sample.symbol)
-        # TODO: LC14d, LC14e
-        g.write_field('LC4a', self.sample.species)
-        g.write_field('LC6d', 'N')
-        g.write_field('LC6e', self.count)
-        g.write_field('LC6f', self.count_label)
-        g.write_field('LC11m', self.fbcv)
-
-        g.write_separator()
-        self.result.to_proforma(g)
-
 
 class Result(DatasetBase):
 
@@ -808,21 +723,6 @@ class Result(DatasetBase):
         if self._clusters is None:
             self._clusters = self._get_clusters()
         return self._clusters
-
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
-
-        g.write_field('LC3', self.assay.sample.project.symbol)
-        g.write_field('LC14b', self.assay.symbol)
-        g.write_field('LC14h', 'Dmel R6.32')  # TODO: un-hardcode
-        g.write_field('LC4a', self.assay.sample.species)
-        g.write_field('LC6d', 'N')
-        g.write_field('LC6e', self.count)
-        g.write_field('LC6f', self.count_label)
-
-        g.write_separator()
-        for cluster in self.clusters:
-            cluster.to_proforma(g)
 
     def _get_clusters(self):
         sample = self.assay.sample
@@ -922,24 +822,165 @@ class Cluster(DatasetBase):
         cl_subset = sample.subset.loc[sample.subset[ct_column] == self.cell_type]
         return cl_subset
 
-    def to_proforma(self, g):
-        self.make_proforma_header(g)
 
-        g.write_field('LC3', self.result.symbol)
-        g.write_field('LC4a', self.result.assay.sample.species)
-        g.write_field('LC4g', self._get_tap_statement())
-        g.write_field('LC6d', 'N')
-        g.write_field('LC6e', self.count)
-        g.write_field('LC6f', self.count_label)
+class ProformaWriter(object):
 
+    def __init__(self, builder):
+        self._builder = builder
+        self._generator = None
+
+    def write(self, project):
+        self._write_refeference_proforma(project.reference)
+        self._write_common_header(project)
+        self._write_field('LC6g', project.title)
+        self._write_field('LC6a', project.description)
+        self._write_dataset_type(project)
+        self._write_cv_terms(project)
+        self._write_species(project)
+        self._write_count(project)
+        self._write_protocols(project)
+        self._write_metadata(project)
+        self._write_separator()
+
+        for subproject in project.subprojects:
+            self._write_subproject(subproject)
+
+        for sample in project.samples:
+            self._write_sample(sample)
+
+        self._write_terminator()
+
+    def _write_field(self, field, value):
+        self._generator.write_field(field, value)
+
+    def _write_separator(self):
+        self._generator.write_separator()
+
+    def _write_terminator(self):
+        self._generator.write_terminator()
+
+    def _write_refeference_proforma(self, reference):
+        g = self._builder.get_generator(proforma_type=ProformaType.PUB_MINI)
+        g.write_header()
+        g.write_field('P22', reference.fbrf)
+        g.write_field('P2', reference.journal)
+        g.write_field('P19')
         g.write_separator()
+        self._generator = self._builder.get_generator(proforma_type=ProformaType.DATASET)
 
-    def _get_tap_statement(self):
-        sample = self.result.assay.sample
-        t = sample.developmental_stage
-        if sample.sex is not None:
-            t += ' | ' + sample.sex
-        return f'<e><t>{t}<a>{self._cell_type}<s><note>'
+    def _write_common_header(self, dataset):
+        self._generator.write_header()
+        self._write_field('LC1f', 'new')
+        self._write_field('LC1a', dataset.symbol)
+
+    def _write_dataset_type(self, dataset):
+        self._write_field('LC2a', dataset.entity_type)
+        self._write_field('LC2b', dataset.data_type)
+
+    def _write_cv_terms(self, dataset):
+        self._write_field('LC13a', dataset.go_cellular_components)
+        self._write_field('LC13b', dataset.go_molecular_functions)
+        self._write_field('LC13c', dataset.go_biological_processes)
+        self._write_field('LC13d', dataset.so_terms)
+
+    def _write_species(self, dataset):
+        self._write_field('LC4a', dataset.species)
+        self._write_field('LC4i', dataset.other_species)
+
+    def _write_protocols(self, dataset):
+        self._write_field('LC11m', dataset.fbcv)
+        self._write_field('LC11a', dataset.collection_protocol)
+        self._write_field('LC6b', dataset.preparation_protocol)
+        self._write_field('LC11c', dataset.assay_protocol)
+        self._write_field('LC11e', dataset.analysis_protocol)
+
+    def _write_count(self, dataset):
+        self._write_field('LC6d', 'N')
+        if dataset.has_count:
+            self._write_field('LC6e', dataset.count)
+            self._write_field('LC6f', dataset.count_label)
+
+    def _write_metadata(self, project):
+        self._write_field('LC7a', "The EMBL-EBI's Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.")
+        for source in project.sources:
+            self._write_field('LC99a', source.accession)
+            self._write_field('LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets')
+        self._write_field('LC8c', f'[{project.lab.name}]({project.lab.url})')
+
+    def _write_subproject(self, subproject):
+        self._write_common_header(subproject)
+        self._write_field('LC6g', subproject.title)
+        self._write_dataset_type(subproject)
+        self._write_field('LC3', subproject.project.symbol)
+        self._write_cv_terms(subproject)
+        self._write_species(subproject)
+        self._write_count(subproject)
+        self._write_protocols(subproject)
+        self._write_separator()
+
+        for sub in subproject.subprojects:
+            self._write_subproject(sub)
+
+        for sample in subproject.samples:
+            self._write_sample(sample)
+
+    def _write_sample(self, sample):
+        self._write_common_header(sample)
+        self._write_field('LC6g', sample.title[0].upper() + sample.title[1:])
+        self._write_dataset_type(sample)
+        self._write_field('LC3', sample.project.symbol)
+        self._write_species(sample)
+        self._write_field('LC4h', sample.strain)
+        self._write_field('LC4f', sample.genotype)
+        self._write_tap(sample.developmental_stage, sample.sex, sample.anatomical_part)
+        self._write_count(sample)
+        self._write_field('LC11m', sample.fbcv)
+        self._write_field('LC11a', sample.collection_protocol)
+        self._write_separator()
+        self._write_assay(sample.assay)
+
+    def _write_assay(self, assay):
+        self._write_common_header(assay)
+        self._write_field('LC6g', assay.title)
+        self._write_dataset_type(assay)
+        self._write_field('LC3', assay.sample.project.symbol)
+        self._write_field('LC14a', assay.sample.symbol)
+        self._write_species(assay.sample)
+        self._write_count(assay)
+        self._write_field('LC11m', assay.fbcv)
+        self._write_separator()
+        self._write_result(assay.result)
+
+    def _write_result(self, result):
+        self._write_common_header(result)
+        self._write_field('LC6g', result.title)
+        self._write_dataset_type(result)
+        self._write_field('LC3', result.assay.sample.project.symbol)
+        self._write_field('LC14b', result.assay.symbol)
+        self._write_field('LC14h', 'Dmel R6.32')  # FIXME: Do not hardcode
+        self._write_species(result.assay.sample)
+        self._write_count(result)
+        self._write_separator()
+
+        for cluster in result.clusters:
+            self._write_cluster(cluster)
+
+    def _write_cluster(self, cluster):
+        self._write_common_header(cluster)
+        self._write_field('LC6g', cluster.title)
+        self._write_dataset_type(cluster)
+        self._write_field('LC3', cluster.result.symbol)
+        self._write_species(cluster.result.assay.sample)
+        self._write_tap(cluster.result.assay.sample.developmental_stage,
+                        cluster.result.assay.sample.sex,
+                        cluster.cell_type)
+        self._write_count(cluster)
+        self._write_separator()
+
+    def _write_tap(self, fbcv, sex, fbbt):
+        if sex is not None:
+            fbcv += ' | ' + sex
+        self._write_field('LC4g', f'<e><t>{fbcv}<a>{fbbt}<s><note>')
 
 
 class CurationContext(object):
@@ -1063,14 +1104,8 @@ def proforma(ctx, specfile, output):
 
     ds = ctx.dataset_from_specfile(specfile)
     builder = ctx.get_proforma_builder(output)
-    g = builder.get_generator(proforma_type=ProformaType.PUB_MINI)
-    g.write_header()
-    g.write_field('P22', ds.reference.fbrf)
-    g.write_field('P2', ds.reference.journal)
-    g.write_field('P19')
-    g.write_separator()
-
-    ds.to_proforma(builder.get_generator(proforma_type=ProformaType.DATASET))
+    writer = ProformaWriter(builder)
+    writer.write(ds)
 
 
 @curate.command()
