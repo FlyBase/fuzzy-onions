@@ -210,11 +210,11 @@ class DatasetBase(object):
         self._desc = spec.get('description', None)
 
         cv_terms = spec.get('cv_terms', {})
-        self._go_cc = cv_terms.get('go_cc', [])
-        self._go_mf = cv_terms.get('go_mf', [])
-        self._go_bp = cv_terms.get('go_bp', [])
-        self._so = cv_terms.get('so', [])
-        self._fbcv = cv_terms.get('fbcv', [])
+        self._go_cc = cv_terms.get('go_cc')
+        self._go_mf = cv_terms.get('go_mf')
+        self._go_bp = cv_terms.get('go_bp')
+        self._so = cv_terms.get('so')
+        self._fbcv = cv_terms.get('fbcv')
 
         protocols = spec.get('protocols', {})
         self._prot_collection = protocols.get('collection', None)
@@ -299,17 +299,17 @@ class DatasetBase(object):
 
     def to_proforma(self, g):
         self.make_proforma_header(g)
-        g.write_field('LC13a', '\n'.join(self.go_cellular_components))
-        g.write_field('LC13b', '\n'.join(self.go_molecular_functions))
-        g.write_field('LC13c', '\n'.join(self.go_biological_processes))
-        g.write_field('LC13d', '\n'.join(self._so))
+        g.write_field('LC13a', self.go_cellular_components)
+        g.write_field('LC13b', self.go_molecular_functions)
+        g.write_field('LC13c', self.go_biological_processes)
+        g.write_field('LC13d', self._so)
         g.write_field('LC4a', self.species)
         g.write_field('LC4i', '\n'.join(self.other_species))
         g.write_field('LC6d', 'N')
         if self.has_count:
             g.write_field('LC6e', self.count)
             g.write_field('LC6f', self.count_label)
-        g.write_field('LC11m', '\n'.join(self.fbcv))
+        g.write_field('LC11m', self.fbcv)
         g.write_field('LC11a', self.collection_protocol)
         g.write_field('LC6b', self.preparation_protocol)
         g.write_field('LC11c', self.assay_protocol)
@@ -559,7 +559,7 @@ class Biosample(DatasetBase):
         self._fbdv = spec.get('stage', None)
         self._sex = spec.get('sex', None)
 
-        self._fbcv = spec.get('cv_terms', {}).get('fbcv_sample', [])
+        self._fbcv = spec.get('cv_terms', {}).get('fbcv_sample')
 
         self._conditions = spec.get('conditions')
         self._selectors = spec.get('selectors')
@@ -657,7 +657,7 @@ class Biosample(DatasetBase):
         g.write_field('LC4g', self._get_tap_statement())
         # TODO: LC12a, LC12b
         g.write_field('LC6d', 'N')
-        g.write_field('LC11m', '\n'.join(self.fbcv))
+        g.write_field('LC11m', self.fbcv)
         g.write_field('LC11a', self.collection_protocol)
 
         g.write_separator()
@@ -699,7 +699,7 @@ class Assay(DatasetBase):
 
         self._tech_ref = spec.get('technical_reference')
         self._biol_ref = spec.get('biological_reference')
-        self._fbcv = spec.get('cv_terms', {}).get('fbcv_assay', [])
+        self._fbcv = spec.get('cv_terms', {}).get('fbcv_assay')
 
         self._sample = sample
         self._result = Result(self)
@@ -754,7 +754,7 @@ class Assay(DatasetBase):
         g.write_field('LC6d', 'N')
         g.write_field('LC6e', self.count)
         g.write_field('LC6f', self.count_label)
-        g.write_field('LC11m', '\n'.join(self.fbcv))
+        g.write_field('LC11m', self.fbcv)
 
         g.write_separator()
         self.result.to_proforma(g)
