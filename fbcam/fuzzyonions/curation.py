@@ -1039,29 +1039,23 @@ def curate(ctx, no_exclude, min_cluster_size):
 @click.argument('specfile', type=click.File('r'))
 @click.option('--with-reads/--without-reads', default=True,
               help="Extract number of reads per biosample.")
-@click.option('--text', '-t', is_flag=True, default=False,
-              help="Produce a text output instead of JSON.")
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
-def extract(ctx, specfile, with_reads, text, output):
+def extract(ctx, specfile, with_reads, output):
     """Extract curation data from a dataset."""
 
     ds = ctx.dataset_from_specfile(specfile)
     if with_reads:
         ds.extract_reads()
 
-    if text:
-        for sample in ds.get_all_samples():
-            output.write(f"Sample {sample.symbol}\n")
-            output.write(f"  Cells: {sample.assay.result.count}\n")
-            if with_reads:
-                output.write(f"  Reads: {sample.assay.count}\n")
-            for cluster in sample.assay.result.clusters:
-                output.write(f"    {cluster.cell_type}: {cluster.count}\n")
-    else:
-        # TODO: JSON output to be re-implemented
-        pass
+    for sample in ds.get_all_samples():
+        output.write(f"Sample {sample.symbol}\n")
+        output.write(f"  Cells: {sample.assay.result.count}\n")
+        if with_reads:
+            output.write(f"  Reads: {sample.assay.count}\n")
+        for cluster in sample.assay.result.clusters:
+            output.write(f"    {cluster.cell_type}: {cluster.count}\n")
 
 
 @curate.command()
