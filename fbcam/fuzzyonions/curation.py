@@ -402,6 +402,18 @@ class ProjectContainer(DatasetBase):
             # This should not happen
             return None
 
+    def get_extra_results(self):
+        assays = [s.assay for s in self.samples]
+        extra = []
+        for result in self.results:
+            is_extra = True
+            for assay in assays:
+                if result.is_single_analysis_of(assay):
+                    is_extra = False
+            if is_extra:
+                extra.append(result)
+        return extra
+
 
 class Project(ProjectContainer):
 
@@ -918,6 +930,9 @@ class ProformaWriter(object):
         for sample in project.samples:
             self._write_sample(sample)
 
+        for result in project.get_extra_results():
+            self._write_result(result)
+
         self._write_terminator()
 
     def _write_field(self, field, value):
@@ -993,6 +1008,9 @@ class ProformaWriter(object):
 
         for sample in subproject.samples:
             self._write_sample(sample)
+
+        for result in subproject.get_extra_results():
+            self._write_result(result)
 
     def _write_sample(self, sample):
         self._write_common_header(sample)
