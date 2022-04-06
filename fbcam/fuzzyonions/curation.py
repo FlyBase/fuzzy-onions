@@ -324,10 +324,12 @@ class ProjectContainer(DatasetBase):
         if 'result' in spec:
             symbol = spec['result'].get('symbol')
             title = spec['result'].get('title')
+            stage = spec['result'].get('stage')
             r = Result([s.assay for s in self._samples],
                        project=self,
                        symbol=symbol,
-                       title=title)
+                       title=title,
+                       stage=stage)
             self._results.append(r)
 
     @property
@@ -723,7 +725,7 @@ class Assay(DatasetBase):
 
 class Result(DatasetBase):
 
-    def __init__(self, assay, project=None, symbol=None, title=None):
+    def __init__(self, assay, project=None, symbol=None, title=None, stage=None):
         if isinstance(assay, list):
             self._assays = assay
         else:
@@ -745,6 +747,7 @@ class Result(DatasetBase):
         self._project = project
         self._symbol = symbol
         self._title = title
+        self._stage = stage
 
         self._desc = ""
         self._clusters = None
@@ -790,6 +793,13 @@ class Result(DatasetBase):
             self._clusters = self._get_clusters()
         return self._clusters
 
+    def get_sex(self):
+        all_sexes = set([a.sample.sex for a in self.assays])
+        if len(all_sexes) == 1:
+            return all_sexes.pop()
+        else:
+            return None
+
     def is_single_analysis_of(self, assay):
         if len(self.assays) > 1:
             return False
@@ -798,6 +808,7 @@ class Result(DatasetBase):
     def _get_clusters(self):
         clusters = []
         cell_types = {}
+        sex = self.get_sex()
 
         for assay in self.assays:
             sample = assay.sample
@@ -818,19 +829,21 @@ class Result(DatasetBase):
         for cell_type in cell_types.keys():
             n, sample = cell_types[cell_type]
             if n >= threshold:
-                clusters.append(Cluster(cell_type, n, self, sample))
+                clusters.append(Cluster(cell_type, n, self, sample, self._stage, sex))
 
         return clusters
 
 
 class Cluster(DatasetBase):
 
-    def __init__(self, cell_type, count, result, sample):
+    def __init__(self, cell_type, count, result, sample, stage, sex):
         self._cell_type = cell_type
         self._count = count
         self._result = result
         self._sample = sample
         self._simple_ct = None
+        self._stage = stage
+        self._sex = sex
         self._desc = ""
         self.expression = {}
         self.presence = {}
@@ -896,11 +909,14 @@ class Cluster(DatasetBase):
 
     @property
     def developmental_stage(self):
-        return self._sample.developmental_stage
+        if self._stage is None:
+            return self._sample.developmental_stage
+        else:
+            return self._stage
 
     @property
     def sex(self):
-        return self._sample.sex
+        return self._sex
 
     def get_cell_ids(self):
         ids = []
@@ -1071,9 +1087,7 @@ class ProformaWriter(object):
         self._write_dataset_type(cluster)
         self._write_field('LC3', cluster.result.symbol)
         self._write_species(cluster.result.assay.sample)
-        self._write_tap(cluster.result.assay.sample.developmental_stage,
-                        cluster.result.assay.sample.sex,
-                        cluster.cell_type)
+        self._write_tap(cluster.developmental_stage, cluster.sex, cluster.cell_type)
         self._write_count(cluster)
         self._write_separator()
 
