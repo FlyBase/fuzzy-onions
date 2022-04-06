@@ -788,7 +788,7 @@ class Result(DatasetBase):
                 if cell_type in cell_types:
                     cell_types[cell_type][0] += n
                 else:
-                    cell_types[cell_type] = (n, sample)
+                    cell_types[cell_type] = [n, sample]
 
         threshold = self.project.top_project.min_cluster_size
         for cell_type in cell_types.keys():
