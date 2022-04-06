@@ -317,6 +317,10 @@ class ProjectContainer(DatasetBase):
         for sample in spec.get('samples', []):
             self._samples.append(Biosample(sample, self))
 
+        self._results = []
+        for sample in self._samples:
+            self._results.append(Result(sample.assay))
+
     @property
     def subprojects(self):
         return self._subprojects
@@ -349,6 +353,10 @@ class ProjectContainer(DatasetBase):
         return p
 
     @property
+    def results(self):
+        return self._results
+
+    @property
     def symbol(self):
         if self.is_top_project:
             return self._symbol
@@ -378,6 +386,21 @@ class ProjectContainer(DatasetBase):
             for subproject in self.subprojects:
                 samples.extend(subproject.get_all_samples())
             return samples
+
+    def get_all_results(self):
+        results = []
+        results.extend(self.results)
+        for subproject in self.subprojects:
+            results.extend(subproject.get_all_results())
+        return results
+
+    def get_assay_single_analysis(self, assay):
+        results = [r for r in self.results if r.is_single_analysis_of(assay)]
+        if len(results) == 1:
+            return results[0]
+        else:
+            # This should not happen
+            return None
 
 
 class Project(ProjectContainer):
@@ -443,10 +466,10 @@ class Project(ProjectContainer):
         # below. This allows to read the table only once.
 
         clusters_by_cell_id = {}
-        samples = self.get_all_samples()
-        for sample in samples:
-            for cluster in sample.assay.result.clusters:
-                for cell_id in cluster.subset['Assay']:
+        results = self.get_all_results()
+        for result in results:
+            for cluster in result.clusters:
+                for cell_id in cluster.get_cell_ids():
                     if not cell_id in clusters_by_cell_id:
                         clusters_by_cell_id[cell_id] = [cluster]
                     else:
@@ -474,9 +497,9 @@ class Project(ProjectContainer):
         # We have all the values we need in the cluster structures.
         # Now we just need to assemble a DataFrame with them.
 
-        result = None
-        for sample in samples:
-            for cluster in sample.assay.result.clusters:
+        table = None
+        for result in results:
+            for cluster in result.clusters:
                 d = pandas.DataFrame(data={'expression': pandas.Series(data=cluster.expression),
                                            'presence': pandas.Series(data=cluster.presence)
                                            })
@@ -488,14 +511,14 @@ class Project(ProjectContainer):
                 d['sample'] = cluster.symbol
 
                 d = d.drop(columns=['expression', 'presence'])
-                if result is not None:
-                    result = result.append(d)
+                if table is not None:
+                    table = table.append(d)
                 else:
-                    result = d
+                    table = d
 
         logging.info("Post-processing complete.")
 
-        return result
+        return table
 
 
 class Biosample(DatasetBase):
@@ -639,7 +662,6 @@ class Assay(DatasetBase):
         self._fbcv = spec.get('cv_terms', {}).get('fbcv_assay')
 
         self._sample = sample
-        self._result = Result(self)
         self.count = 0
 
     @property
@@ -677,22 +699,31 @@ class Assay(DatasetBase):
     def sample(self):
         return self._sample
 
-    @property
-    def result(self):
-        return self._result
-
 
 class Result(DatasetBase):
 
-    def __init__(self, assay):
-        self._assay = assay
-        self._title = "Clustering analysis of " + assay.sample.title
-        self._clusters = None
-        self._desc = ""
+    def __init__(self, assay, project=None, symbol=None, title=None):
+        if isinstance(assay, list):
+            self._assays = assay
+        else:
+            self._assays = [assay]
 
-    @property
-    def symbol(self):
-        return self.assay.symbol + '_clustering'
+        if project is None:
+            project = self._assays[0].sample.project
+        self._project = project
+
+        if symbol is None:
+            symbol = self._assays[0].symbol + '_clustering'
+        else:
+            symbol = self._project.symbol + '_' + symbol
+        self._symbol = symbol
+
+        if title is None:
+            title = "Clustering analysis of " + self._assays[0].sample.title
+        self._title = title
+
+        self._desc = ""
+        self._clusters = None
 
     @property
     def entity_type(self):
@@ -704,11 +735,22 @@ class Result(DatasetBase):
 
     @property
     def assay(self):
-        return self._assay
+        return self._assays[0]
+
+    @property
+    def assays(self):
+        return self._assays
+
+    @property
+    def project(self):
+        return self._project
 
     @property
     def count(self):
-        return len(self.assay.sample.subset)
+        n = 0
+        for assay in self.assays:
+            n += len(assay.sample.subset)
+        return n
 
     @property
     def has_count(self):
@@ -724,33 +766,46 @@ class Result(DatasetBase):
             self._clusters = self._get_clusters()
         return self._clusters
 
+    def is_single_analysis_of(self, assay):
+        if len(self.assays) > 1:
+            return False
+        return self.assay.symbol == assay.symbol
+
     def _get_clusters(self):
-        sample = self.assay.sample
-
-        if not sample.source.has_cell_types:
-            return []
-
         clusters = []
-        for cell_type in sample.subset[sample.source.cell_type_column].dropna().unique():
-            n = len(sample.subset.loc[sample.subset[sample.source.cell_type_column] == cell_type])
-            if not self._exclude_cluster(cell_type, n):
-                clusters.append(Cluster(cell_type, n, self))
+        cell_types = {}
+
+        for assay in self.assays:
+            sample = assay.sample
+            if not sample.source.has_cell_types:
+                continue
+
+            for cell_type in sample.subset[sample.source.cell_type_column].dropna().unique():
+                if sample.exclude_cell_type(cell_type):
+                    continue
+
+                n = len(sample.subset.loc[sample.subset[sample.source.cell_type_column] == cell_type])
+                if cell_type in cell_types:
+                    cell_types[cell_type][0] += n
+                else:
+                    cell_types[cell_type] = (n, sample)
+
+        threshold = self.project.top_project.min_cluster_size
+        for cell_type in cell_types.keys():
+            n, sample = cell_types[cell_type]
+            if n >= threshold:
+                clusters.append(Cluster(cell_type, n, self, sample))
 
         return clusters
-
-    def _exclude_cluster(self, cell_type, count):
-        if count < self.assay.sample.top_project.min_cluster_size:
-            return True
-
-        return self.assay.sample.exclude_cell_type(cell_type)
 
 
 class Cluster(DatasetBase):
 
-    def __init__(self, cell_type, count, result):
+    def __init__(self, cell_type, count, result, sample):
         self._cell_type = cell_type
         self._count = count
         self._result = result
+        self._sample = sample
         self._simple_ct = None
         self._desc = ""
         self.expression = {}
@@ -803,7 +858,7 @@ class Cluster(DatasetBase):
     @property
     def simplified_cell_type(self):
         if self._simple_ct is None:
-            sct = self.result.assay.sample.source.get_simplified_cell_type(self._cell_type)
+            sct = self._sample.source.get_simplified_cell_type(self._cell_type)
             rules = [
                 ('embryonic/larval ', ''),
                 ('embryonic ', ''),
@@ -816,11 +871,26 @@ class Cluster(DatasetBase):
         return self._simple_ct
 
     @property
-    def subset(self):
-        sample = self.result.assay.sample
-        ct_column = sample.source.cell_type_column
-        cl_subset = sample.subset.loc[sample.subset[ct_column] == self.cell_type]
-        return cl_subset
+    def developmental_stage(self):
+        return self._sample.developmental_stage
+
+    @property
+    def sex(self):
+        return self._sample.sex
+
+    def get_cell_ids(self):
+        ids = []
+
+        for assay in self.result.assays:
+            sample = assay.sample
+            if not sample.source.has_cell_types:
+                continue
+
+            ct_column = sample.source.cell_type_column
+            cl_subset = sample.subset.loc[sample.subset[ct_column] == self.cell_type]
+            ids.extend(cl_subset['Assay'].values)
+
+        return ids
 
 
 class ProformaWriter(object):
@@ -949,14 +1019,14 @@ class ProformaWriter(object):
         self._write_count(assay)
         self._write_field('LC11m', assay.fbcv)
         self._write_separator()
-        self._write_result(assay.result)
+        self._write_result(assay.sample.project.get_assay_single_analysis(assay))
 
     def _write_result(self, result):
         self._write_common_header(result)
         self._write_field('LC6g', result.title)
         self._write_dataset_type(result)
-        self._write_field('LC3', result.assay.sample.project.symbol)
-        self._write_field('LC14b', result.assay.symbol)
+        self._write_field('LC3', result.project.symbol)
+        self._write_field('LC14b', '\n'.join([a.symbol for a in result.assays]))
         self._write_field('LC14h', 'Dmel R6.32')  # FIXME: Do not hardcode
         self._write_species(result.assay.sample)
         self._write_count(result)
@@ -1069,9 +1139,11 @@ def extract(ctx, specfile, output):
 
     for sample in ds.get_all_samples():
         output.write(f"Sample {sample.symbol}\n")
-        output.write(f"  Cells: {sample.assay.result.count}\n")
+
+        result = sample.project.get_assay_single_analysis(sample.assay)
+        output.write(f"  Cells: {result.count}\n")
         output.write(f"  Reads: {sample.assay.count}\n")
-        for cluster in sample.assay.result.clusters:
+        for cluster in result.clusters:
             output.write(f"    {cluster.cell_type}: {cluster.count}\n")
 
 
