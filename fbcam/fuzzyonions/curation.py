@@ -565,6 +565,8 @@ class Biosample(DatasetBase):
 
         self._fbcv = spec.get('cv_terms', {}).get('fbcv_sample')
 
+        self._entities = spec.get('entities', [])
+
         self._conditions = spec.get('conditions')
         self._selectors = spec.get('selectors')
         self._source_id = spec.get('source', None)
@@ -623,6 +625,10 @@ class Biosample(DatasetBase):
     @property
     def sex(self):
         return self._sex
+
+    @property
+    def entities(self):
+        return self._entities
 
     @property
     def assay(self):
@@ -1049,6 +1055,7 @@ class ProformaWriter(object):
         self._write_field('LC4h', sample.strain)
         self._write_field('LC4f', sample.genotype)
         self._write_tap(sample.developmental_stage, sample.sex, sample.anatomical_part)
+        self._write_entities(sample.entities)
         self._write_count(sample)
         self._write_field('LC11m', sample.fbcv)
         self._write_field('LC11a', sample.collection_protocol)
@@ -1095,6 +1102,11 @@ class ProformaWriter(object):
         if sex is not None:
             fbcv += ' | ' + sex
         self._write_field('LC4g', f'<e><t>{fbcv}<a>{fbbt}<s><note>')
+
+    def _write_entities(self, entities):
+        for entity_ref, entity_type in entities:
+            self._write_field('LC12a', entity_ref)
+            self._write_field('LC12b', entity_type)
 
 
 class CurationContext(object):
