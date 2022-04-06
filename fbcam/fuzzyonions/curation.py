@@ -718,15 +718,29 @@ class Assay(DatasetBase):
 
     @property
     def technical_reference(self):
-        return self._tech_ref
+        return self._get_full_reference(self._tech_ref)
 
     @property
     def biological_reference(self):
-        return self._biol_ref
+        return self._get_full_reference(self._biol_ref)
 
     @property
     def sample(self):
         return self._sample
+
+    def _get_full_reference(self, reference):
+        if reference is None or len(reference) == 0:
+            return reference
+
+        symbol = self.sample.project.top_project.symbol + '_' + reference
+        samples = [s for s in self.sample.project.top_project.get_all_samples() if s.symbol == symbol]
+        if len(samples) == 1:
+            return samples[0].assay.symbol
+        elif len(samples) == 0:
+            logging.warn(f"Referenced assay not found: {reference}")
+        elif len(samples) > 1:
+            logging.warn(f"Assay reference ambiguous: {reference}")
+        return reference
 
 
 class Result(DatasetBase):
@@ -1068,6 +1082,8 @@ class ProformaWriter(object):
         self._write_dataset_type(assay)
         self._write_field('LC3', assay.sample.project.symbol)
         self._write_field('LC14a', assay.sample.symbol)
+        self._write_field('LC14d', assay.technical_reference)
+        self._write_field('LC14e', assay.biological_reference)
         self._write_species(assay.sample)
         self._write_count(assay)
         self._write_field('LC11m', assay.fbcv)
