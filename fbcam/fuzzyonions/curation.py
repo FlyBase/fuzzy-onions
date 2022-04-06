@@ -321,6 +321,15 @@ class ProjectContainer(DatasetBase):
         for sample in self._samples:
             self._results.append(Result(sample.assay))
 
+        if 'result' in spec:
+            symbol = spec['result'].get('symbol')
+            title = spec['result'].get('title')
+            r = Result([s.assay for s in self._samples],
+                       project=self,
+                       symbol=symbol,
+                       title=title)
+            self._results.append(r)
+
     @property
     def subprojects(self):
         return self._subprojects
@@ -721,17 +730,20 @@ class Result(DatasetBase):
             self._assays = [assay]
 
         if project is None:
+            # This is a single assay-specific analysis
             project = self._assays[0].sample.project
-        self._project = project
-
-        if symbol is None:
             symbol = self._assays[0].symbol + '_clustering'
-        else:
-            symbol = self._project.symbol + '_' + symbol
-        self._symbol = symbol
-
-        if title is None:
             title = "Clustering analysis of " + self._assays[0].sample.title
+        else:
+            if symbol is None:
+                symbol = project.symbol + '_clustering'
+            else:
+                symbol = project.symbol + '_' + symbol
+            if title is None:
+                title = "Clustering analysis of " + project.title[0].lower() + project.title[1:]
+
+        self._project = project
+        self._symbol = symbol
         self._title = title
 
         self._desc = ""
