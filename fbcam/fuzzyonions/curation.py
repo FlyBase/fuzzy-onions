@@ -798,6 +798,12 @@ class Result(DatasetBase):
         return self._project
 
     @property
+    def analysis_protocol(self):
+        # FIXME: Allow to specify custom protocol for
+        # non-sample-specific analyses
+        return self.assay.sample.analysis_protocol
+
+    @property
     def count(self):
         n = 0
         for assay in self.assays:
@@ -1104,6 +1110,7 @@ class ProformaWriter(object):
         self._write_field('LC14h', result.project.top_project.reference_genome)
         self._write_species(result.assay.sample)
         self._write_count(result)
+        self._write_field('LC11e', result.analysis_protocol)
         self._write_separator()
 
         for cluster in result.clusters:
