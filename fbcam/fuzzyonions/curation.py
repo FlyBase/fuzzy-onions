@@ -1154,7 +1154,7 @@ class CurationContext(object):
 
     def dataset_from_specfile(self, specfile, with_reads=True):
         spec = json.load(specfile)
-        self._expand_defaults(spec)
+        self.expand_defaults(spec)
         dataset = Project(spec, self._min_cluster)
 
         for source in spec['sources']:
@@ -1167,12 +1167,12 @@ class CurationContext(object):
 
         return dataset
 
-    def _expand_defaults(self, spec, parent={}):
-        defaults = spec.get('defaults', {})
+    def expand_defaults(self, spec, parent={}):
+        defaults = spec.pop('defaults', {})
         self._copy_dict(parent, defaults)
 
         for subproject in spec.get('subprojects', []):
-            self._expand_defaults(subproject, defaults)
+            self.expand_defaults(subproject, defaults)
 
         for sample in spec.get('samples', []):
             self._copy_dict(defaults, sample)
@@ -1286,4 +1286,17 @@ def fixscea(ctx, specfile):
                 f.write('Original term\tProposed new term\tComment\n')
                 for old, new, comment in corrset.values:
                     f.write(f'{old}\t{new}\t{comment}\n')
+
+
+@curate.command()
+@click.argument('specfile', type=click.File('r'))
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Write to the specified file instead of standard output.")
+@click.pass_obj
+def expand(ctx, specfile, output):
+    """Expand a dataset description file."""
+
+    spec = json.load(specfile)
+    ctx.expand_defaults(spec)
+    json.dump(spec, output, indent=4)
 
