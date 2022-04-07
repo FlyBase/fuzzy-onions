@@ -434,6 +434,7 @@ class Project(ProjectContainer):
 
         self._reference = FlybaseReference(spec.get('reference', {}))
         self._lab = SourceLab(spec.get('creator', {}))
+        self._ref_genome = spec.get('reference_genome', 'Dmel R6.32')
 
         self._sources = []
 
@@ -459,6 +460,10 @@ class Project(ProjectContainer):
     @property
     def min_cluster_size(self):
         return self._min_cluster_size
+
+    @property
+    def reference_genome(self):
+        return self._ref_genome
 
     def extract_reads(self):
         sample_by_cell_id = {}
@@ -1096,7 +1101,7 @@ class ProformaWriter(object):
         self._write_dataset_type(result)
         self._write_field('LC3', result.project.symbol)
         self._write_field('LC14b', '\n'.join([a.symbol for a in result.assays]))
-        self._write_field('LC14h', 'Dmel R6.32')  # FIXME: Do not hardcode
+        self._write_field('LC14h', result.project.top_project.reference_genome)
         self._write_species(result.assay.sample)
         self._write_count(result)
         self._write_separator()
