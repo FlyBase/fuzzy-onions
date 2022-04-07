@@ -1278,21 +1278,21 @@ def fixscea(ctx, specfile):
     if ds.apply_corrections(only_new=True, target='scea') > 0:
         ds.data.experiment_design.to_csv(new_expd_file, sep='\t')
 
-        ct_column = ds.cell_type_column
+    ct_column = ds.cell_type_column
+    if ct_column is None:
+        ct_column = ds.input_cell_type_column
         if ct_column is None:
-            ct_column = ds.input_cell_type_column
-            if ct_column is None:
-                logging.warn("No cell type informations to correct")
-                return
+            logging.warn("No cell type informations to correct")
+            return
 
-        for corrset in ds.get_corrections('scea'):
-            if corrset.source != ct_column:
-                continue
+    for corrset in ds.get_corrections('scea'):
+        if corrset.source != ct_column:
+            continue
 
-            with open(ct_file, 'w') as f:
-                f.write('Original term\tProposed new term\tComment\n')
-                for old, new, comment in corrset.values:
-                    f.write(f'{old}\t{new}\t{comment}\n')
+        with open(ct_file, 'w') as f:
+            f.write('Original term\tProposed new term\tComment\n')
+            for old, new, comment in corrset.values:
+                f.write(f'{old}\t{new}\t{comment}\n')
 
 
 @curate.command()
