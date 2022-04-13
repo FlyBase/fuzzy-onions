@@ -1,0 +1,74 @@
+# Base symbol for FBlc objects
+symbol: scRNAseq_yyyy_Authorname
+
+# List of filenames describing the source datasets
+sources:
+  - E-MTAB-xxxxx.yaml
+
+# FlyBase reference associated with the dataset
+reference:
+  fbrf: FBrfxxxxxxx
+  journal: 
+
+# Project title and description
+title:
+description:
+
+# Research group or organisation that created the dataset
+creator:
+  name:
+  url:
+
+# Project-level CV terms
+cv_terms:
+  go_cc: [ ] # GO cellular components (typically unused)
+  go_mf: [ ] # GO molecular functions (typically unused)
+  go_bo: [ ] # GO biological processes
+  so: [ ] # Sequence Ontology (typically unused)
+  fbcv: [ ] # FBcv's study design terms
+
+# Project-level protocols
+protocols:
+  collection: # Protocol for sample collection (typically not used at this level)
+  preparation: # Protocol for RNA-Seq libraries preparation
+  assay: # Protocol for RNA-Seq libraries sequencing
+  analysis: # Protocol for data analysis
+
+# Default values for samples
+# This dictionary may contain any of the keys expected in a
+# "sample" dictionary. If a sample does not contain a given
+# key, the value from the "defaults" dictionary will be used.
+defaults: { }
+
+# List of samples
+samples:
+  - symbol: # the sample's short code
+    conditions: # columns to use to select cells belonging to that sample
+      - Sample Characteristic[genotype]
+      - Sample Characteristic[sex]
+    selectors: # values to use to select cells belonging to that sample
+      - w[1118]
+      - male
+
+    title: 
+    protocols:
+      collection:
+    cv_terms:
+      fbcv_sample: [ ] # FBcv terms describing how the sample was obtained
+      fbcv_assay: [ ] # FBcv terms describing how the sample was assayed
+
+    species:
+      other: [ ] # Species (other than Dmel) involved in this sample
+
+    strain:
+    genotype:
+    anatomical_part:
+    stage:
+    sex: # "female" or "male"
+    is_single_nucleus: # true or false (default is false)
+
+    technical_reference: # short sample code
+    biological_reference: # short sample code
+
+    entities: # Experimental factors used in this sample
+      - [ FBzzXXXXXXX, type ]

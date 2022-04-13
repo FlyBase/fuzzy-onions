@@ -1,0 +1,21 @@
+# EBI accession number for the dataset
+accession: E-MTAB-xxxxxx
+
+# Name of the column containing cell type annotations
+cell_types_column: Factor Value[inferred cell type - ontology labels]
+
+# Correction sets
+corrections:
+  - target: # "scea" for corrections intended for EBI only
+            # "internal" for corrections intended for FlyBase only
+            # default is both
+    source: # Column containing the values to look for
+    destination: # Column where corrected values should be written
+                 # (may be omitted if same as source)
+    values:
+      - -  # original value
+        -  # corrected value
+        -  # optional comment
+
+# Shorter cell type names to use when generating symbol
+simplified_cell_types: { }
