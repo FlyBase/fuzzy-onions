@@ -20,6 +20,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import json
+import yaml
 import logging
 import pandas
 import click
@@ -777,7 +778,7 @@ class Biosample(DatasetBase):
         if self._desc is None:
             self._desc = ""
 
-        self._is_sn = spec.get('is_single_nucleus', 'no') == 'yes'
+        self._is_sn = spec.get('is_single_nucleus', False)
 
         self._other_species = spec.get('species', {}).get('other', [])
 
@@ -1550,16 +1551,12 @@ class CurationContext(object):
     def source_dataset_from_specfile(self, specfile):
         """Build a source dataset object from a JSON specification.
         
-        :param specfile: a file-like object (or a filename) containing
-            a JSON description of the source dataset
+        :param specfile: the name of a file containing a JSON or YAML
+            description of the source dataset
         :return: a :class:`SourceDataset` object
         """
-        
-        if isinstance(specfile, str):
-            with open(specfile, 'r') as f:
-                spec = json.load(f)
-        else:
-            spec = json.load(specfile)
+
+        spec = self.load_spec_file(specfile)
         dataset = SourceDataset(spec)
         dataset.feed_data(self._store)
         return dataset
@@ -1567,15 +1564,15 @@ class CurationContext(object):
     def dataset_from_specfile(self, specfile, with_reads=True):
         """Build a FlyBase dataset object from a JSON specification.
         
-        :param specfile: a file-like object containing a JSON
+        :param specfile: the name of a file containing a JSON or YAML
             description of the dataset
         :param with_reads: if True (the default), automatically
             extract the number of sequencing reads when building
             the dataset
         :return: a :class:`Project` object
         """
-        
-        spec = json.load(specfile)
+
+        spec = self.load_spec_file(specfile)
         self.expand_defaults(spec)
         dataset = Project(spec, self._min_cluster)
 
@@ -1588,6 +1585,22 @@ class CurationContext(object):
             dataset.extract_reads()
 
         return dataset
+
+    def load_spec_file(self, filename):
+        """Load a JSON or YAML specification file.
+        
+        :param filename: the name of the specification file
+        :return: a dictionary representing the specification
+        """
+
+        is_json = filename.endswith('.json')
+        with open(filename, 'r') as f:
+            if is_json:
+                spec = json.load(f)
+            else:
+                spec = yaml.load(f, Loader=yaml.SafeLoader)
+
+        return spec
 
     def expand_defaults(self, spec, parent={}):
         """Propagate default values in a JSON description.
@@ -1638,7 +1651,7 @@ def curate(ctx, no_exclude, min_cluster_size, with_reads):
 
 
 @curate.command()
-@click.argument('specfile', type=click.File('r'))
+@click.argument('specfile', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
@@ -1664,7 +1677,7 @@ def extract(ctx, specfile, output):
 
 
 @curate.command()
-@click.argument('specfile', type=click.File('r'))
+@click.argument('specfile', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.option('--header', '-H', is_flag=True, default=False,
@@ -1690,7 +1703,7 @@ def sumexpr(ctx, specfile, output, header):
 
 
 @curate.command()
-@click.argument('specfile', type=click.File('r'))
+@click.argument('specfile', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
@@ -1713,7 +1726,7 @@ def proforma(ctx, specfile, output):
 
 
 @curate.command()
-@click.argument('specfile', type=click.File('r'))
+@click.argument('specfile', type=click.Path(exists=True))
 @click.pass_obj
 def fixscea(ctx, specfile):
     """Generate correction files for the SCEA.
@@ -1748,7 +1761,7 @@ def fixscea(ctx, specfile):
 
 
 @curate.command()
-@click.argument('specfile', type=click.File('r'))
+@click.argument('specfile', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
@@ -1762,7 +1775,7 @@ def expand(ctx, specfile, output):
     the curators.
     """
 
-    spec = json.load(specfile)
+    spec = ctx.load_spec_file(specfile)
     ctx.expand_defaults(spec)
     json.dump(spec, output, indent=4)
 
