@@ -183,13 +183,13 @@ class FlybaseReference(object):
     @property
     def fbrf(self):
         """The FlyBase identifier for the paper."""
-        
+
         return self._fbrf
 
     @property
     def journal(self):
         """The abbreviated form of the journal."""
-        
+
         # TODO: Fetch from the database with the FBrf?
         return self._journal
 
@@ -207,13 +207,13 @@ class SourceLab(object):
     @property
     def name(self):
         """Human-readable name of the research group."""
-        
+
         return self._name
 
     @property
     def url(self):
         """URL to the public web site of the research group."""
-        
+
         return self._url
 
 
@@ -249,19 +249,19 @@ class DatasetBase(object):
     @property
     def symbol(self):
         """The dataset symbol, directly usable in LC1a."""
-                
+
         return self._symbol
 
     @property
     def title(self):
         """The dataset title, directly usable in LC6g."""
-        
+
         return self._title
 
     @property
     def description(self):
         """A long description of the dataset (LC6a, optional)."""
-        
+
         if hasattr(self, '_desc'):
             return self._desc
         else:
@@ -274,7 +274,7 @@ class DatasetBase(object):
         This property is overriden in subclasses to automatically
         return the correct value.
         """
-        
+
         pass
 
     @property
@@ -284,7 +284,7 @@ class DatasetBase(object):
         This property is overriden in subclasses to automatically
         return the correct value.
         """
-        
+
         pass
 
     @property
@@ -296,7 +296,7 @@ class DatasetBase(object):
         may be None if GO curation has not been performed, or an
         empty array if the curators explicitly assigned no GO terms.
         """
-        
+
         return self._go_cc
 
     @property
@@ -308,7 +308,7 @@ class DatasetBase(object):
         may be None if GO curation has not been performed, or an
         empty array if the curators explicitly assigned no GO terms.
         """
-        
+
         return self._go_mf
 
     @property
@@ -320,7 +320,7 @@ class DatasetBase(object):
         may be None if GO curation has not been performed, or an
         empty array if the curators explicitly assigned no GO terms.
         """
-        
+
         return self._go_bp
 
     @property
@@ -344,31 +344,31 @@ class DatasetBase(object):
         empty array if the curators explicitly assigned no FBcv
         terms.
         """
-        
+
         return self._fbcv
 
     @property
     def collection_protocol(self):
         """The sample collection or isolation protocol (LC11a)."""
-        
+
         return self._prot_collection
 
     @property
     def preparation_protocol(self):
         """The sample preparation protocol (LC6b)."""
-        
+
         return self._prot_preparation
 
     @property
     def assay_protocol(self):
         """The protocol for the assay proper (LC11c)."""
-        
+
         return self._prot_assay
 
     @property
     def analysis_protocol(self):
         """The protocol for data analysis (LC11e)."""
-        
+
         return self._prot_analysis
 
     @property
@@ -378,13 +378,13 @@ class DatasetBase(object):
         This property contains a 4-letter species code (typically
         Dmel).
         """
-        
+
         return self._species
 
     @property
     def other_species(self):
         """A list of extra derivation species (LC4i)."""
-        
+
         return []
 
     @property
@@ -395,13 +395,13 @@ class DatasetBase(object):
         property of that object will contain the value expected for
         the LC6e field.
         """
-        
+
         return False
 
     @property
     def count_label(self):
         """Label for the entities count value (LC6f)."""
-        
+
         return None
 
 
@@ -447,13 +447,13 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`ProjectContainer` objects
         """
-        
+
         return self._subprojects
 
     @property
     def has_subprojects(self):
         """Indicate whether this project contains subprojects."""
-        
+
         return len(self.subprojects) > 0
 
     @property
@@ -462,13 +462,13 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`Biosample` objects
         """
-        
+
         return self._samples
 
     @property
     def has_samples(self):
         """Indicate whether this project contains samples."""
-        
+
         return len(self.samples) > 0
 
     @property
@@ -478,13 +478,13 @@ class ProjectContainer(DatasetBase):
         :return: a :class:`ProjectContainer` object, or None if the
             current project is a top-level project
         """
-        
+
         return self._parent
 
     @property
     def is_top_project(self):
         """Indicate whether the current project is a top-level project."""
-        
+
         return self._parent is None
 
     @property
@@ -496,7 +496,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a :class:`Project` object
         """
-        
+
         p = self
         while not p.is_top_project:
             p = self.project
@@ -515,7 +515,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`Result` objects
         """
-        
+
         return self._results
 
     @property
@@ -545,7 +545,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`Biosample` objects
         """
-        
+
         if self.has_samples:
             return self.samples
         else:
@@ -559,7 +559,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`Result` objects
         """
-        
+
         results = []
         results.extend(self.results)
         for subproject in self.subprojects:
@@ -571,7 +571,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a :class:`Result` object
         """
-        
+
         results = [r for r in self.results if r.is_single_analysis_of(assay)]
         if len(results) == 1:
             return results[0]
@@ -587,7 +587,7 @@ class ProjectContainer(DatasetBase):
         
         :return: a list of :class:`Result` objects
         """
-        
+
         assays = [s.assay for s in self.samples]
         extra = []
         for result in self.results:
@@ -619,7 +619,7 @@ class Project(ProjectContainer):
         
         :return: a list of :class:`SourceDataset` objects
         """
-        
+
         return self._sources
 
     @property
@@ -635,7 +635,7 @@ class Project(ProjectContainer):
         
         :return: a :class:`FlyBaseReference` object
         """
-        
+
         return self._reference
 
     @property
@@ -644,7 +644,7 @@ class Project(ProjectContainer):
         
         :return: a :class:`SourceLab` object
         """
-        
+
         return self._lab
 
     @property
@@ -654,13 +654,13 @@ class Project(ProjectContainer):
         If a cluster in the source dataset contains less than this
         threshold, the cluster is excluded from the results.
         """
-        
+
         return self._min_cluster_size
 
     @property
     def reference_genome(self):
         """The version of the reference genome assembly (LC14h)."""
-        
+
         return self._ref_genome
 
     def extract_reads(self):
@@ -674,7 +674,7 @@ class Project(ProjectContainer):
         in the :attr:`count` property of the :class:`Assay` object
         associated with each sample.
         """
-        
+
         sample_by_cell_id = {}
         all_samples = self.get_all_samples()
         for sample in all_samples:
@@ -707,7 +707,7 @@ class Project(ProjectContainer):
         
         :return: a :class:`pandas.DataFrame` object
         """
-        
+
         # Pre-processing
         # We prepare a data structure for each cluster in each sample.
         # That structure will be filled as we read the expression table
@@ -822,7 +822,7 @@ class Biosample(DatasetBase):
         
         :return: a :class:`ProjectContainer` object
         """
-        
+
         return self._project
 
     @property
@@ -834,13 +834,13 @@ class Biosample(DatasetBase):
         
         :return: a :class:`Project` object
         """
-        
+
         return self.project.top_project
 
     @property
     def is_single_nucleus(self):
         """Indicate whether the sample contains single nuclei."""
-        
+
         return self._is_sn
 
     @property
@@ -850,13 +850,13 @@ class Biosample(DatasetBase):
     @property
     def strain(self):
         """The fly strain that provided this sample (LC4h)."""
-        
+
         return self._strain
 
     @property
     def genotype(self):
         """The genotype of the flies that provided this sample (LC4f)."""
-        
+
         return self._genotype
 
     @property
@@ -865,7 +865,7 @@ class Biosample(DatasetBase):
         
         This is a term from the Drosophila Anatomy Ontology (FBbt).
         """
-        
+
         return self._fbbt
 
     @property
@@ -875,7 +875,7 @@ class Biosample(DatasetBase):
         This is a term from the Drosophila Developmental Ontology
         (FBdv).
         """
-        
+
         return self._fbdv
 
     @property
@@ -886,7 +886,7 @@ class Biosample(DatasetBase):
         unknown or the sample comes from a mix of both female and
         male individuals.
         """
-        
+
         return self._sex
 
     @property
@@ -897,7 +897,7 @@ class Biosample(DatasetBase):
         FlyBase identifier for the experimental entity (LC12a) and
         a value indicating the type of entity (LC12b).
         """
-        
+
         return self._entities
 
     @property
@@ -906,7 +906,7 @@ class Biosample(DatasetBase):
         
         :return: a :class:`Assay` object
         """
-        
+
         return self._assay
 
     @property
@@ -917,7 +917,7 @@ class Biosample(DatasetBase):
         "Experiment Design Table", containing only the cells that
         belong to the current sample.
         """
-        
+
         if self._subset is None:
             self._subset = self._get_subset()
         return self._subset
@@ -928,7 +928,7 @@ class Biosample(DatasetBase):
         
         :return: a list of :class:`SourceDataset` object
         """
-        
+
         if self._source is None:
             self._source = self._get_source()
         return self._source
@@ -944,7 +944,7 @@ class Biosample(DatasetBase):
         
         :return: True if the cell type shall be excluded
         """
-        
+
         p = self
         while True:
             if cell_type in p._excluded_ct:
@@ -1021,7 +1021,7 @@ class Assay(DatasetBase):
         
         :return: a :class:`Assay` object
         """
-        
+
         return self._get_full_reference(self._tech_ref)
 
     @property
@@ -1030,7 +1030,7 @@ class Assay(DatasetBase):
         
         :return: a :class:`Assay` object
         """
-        
+
         return self._get_full_reference(self._biol_ref)
 
     @property
@@ -1039,7 +1039,7 @@ class Assay(DatasetBase):
         
         :return: a :class:`Biosample` object
         """
-        
+
         return self._sample
 
     def _get_full_reference(self, reference):
@@ -1106,7 +1106,7 @@ class Result(DatasetBase):
         
         :return: a :class:`Assay` object
         """
-        
+
         return self._assays[0]
 
     @property
@@ -1115,7 +1115,7 @@ class Result(DatasetBase):
         
         :return: a list of :class:`Assay` objects
         """
-        
+
         return self._assays
 
     @property
@@ -1124,7 +1124,7 @@ class Result(DatasetBase):
         
         :return: a :class:`ProjectContainer` object
         """
-        
+
         return self._project
 
     @property
@@ -1154,7 +1154,7 @@ class Result(DatasetBase):
         
         :return: a list of :class:`Cluster` objects
         """
-        
+
         if self._clusters is None:
             self._clusters = self._get_clusters()
         return self._clusters
@@ -1168,7 +1168,7 @@ class Result(DatasetBase):
         
         :return: `female`, `male`, or None
         """
-        
+
         all_sexes = set([a.sample.sex for a in self.assays])
         if len(all_sexes) == 1:
             return all_sexes.pop()
@@ -1177,7 +1177,7 @@ class Result(DatasetBase):
 
     def is_single_analysis_of(self, assay):
         """Indicate whether this analysis is derived from the specified assay."""
-        
+
         if len(self.assays) > 1:
             return False
         return self.assay.symbol == assay.symbol
@@ -1244,7 +1244,7 @@ class Cluster(DatasetBase):
         
         :return: a :class:`Result` object
         """
-        
+
         return self._result
 
     @property
@@ -1265,7 +1265,7 @@ class Cluster(DatasetBase):
         
         This is a FBbt term.
         """
-        
+
         return self._cell_type
 
     @property
@@ -1292,7 +1292,7 @@ class Cluster(DatasetBase):
         curators, or derived from the application of a few
         simplifying rules.
         """
-        
+
         if self._simple_ct is None:
             sct = self._sample.source.get_simplified_cell_type(self._cell_type)
             rules = [
@@ -1319,7 +1319,7 @@ class Cluster(DatasetBase):
 
     def get_cell_ids(self):
         """Get the IDs of all cells in this cluster."""
-        
+
         ids = []
 
         for assay in self.result.assays:
@@ -1342,7 +1342,7 @@ class ProformaWriter(object):
         
         :param builder: a :class:`ProformaGeneratorBuilder` object
         """
-        
+
         self._builder = builder
         self._generator = None
 
@@ -1351,7 +1351,7 @@ class ProformaWriter(object):
         
         :param project: a :class:`Project` object
         """
-        
+
         self._write_refeference_proforma(project.reference)
         self._write_common_header(project)
         self._write_field('LC6g', project.title)
@@ -1532,7 +1532,7 @@ class CurationContext(object):
         :param with_reads: if True, extract the number of sequencing
             reads and write the count in the Assay proforma
         """
-        
+
         self._store = store
         self._no_exclude = no_exclude
         self._min_cluster = min_cluster_size
@@ -1545,7 +1545,7 @@ class CurationContext(object):
         :param output: a file-like object
         :return: a :class:`ProformaGeneratorBuilder` object
         """
-        
+
         return ProformaGeneratorBuilder(self._proformae_dir, output)
 
     def source_dataset_from_specfile(self, specfile):
@@ -1613,7 +1613,7 @@ class CurationContext(object):
         :param parent: supplementary default values to apply, in
             addition to those that may be defined in the project
         """
-        
+
         defaults = spec.pop('defaults', {})
         self._copy_dict(parent, defaults)
 
