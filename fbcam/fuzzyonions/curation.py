@@ -1762,20 +1762,27 @@ def fixscea(ctx, specfile):
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
+@click.option('--format', '-f', 'fmt', type=click.Choice(['json', 'yaml']),
+              default='json', help="Write output in the specified format.")
+@click.option('--expand', '-e', is_flag=True, default=False,
+              help="Expand default values.")
 @click.option('--output', '-o', type=click.File('w'), default='-',
               help="Write to the specified file instead of standard output.")
 @click.pass_obj
-def expand(ctx, specfile, output):
-    """Expand a dataset description file.
+def convert(ctx, specfile, fmt, expand, output):
+    """Convert a specification file from one format to another.
     
-    This command is mostly intended for debugging. It takes a JSON
-    file describing a dataset, expands any default values in it, and
-    writes a new JSON file with all default values expanded. This
-    allows to check that default values are expanded as intended by
-    the curators.
+    This command is mostly intended for debugging. It takes a JSON or
+    YAML file describing a dataset, optionally expands any default
+    values in it, and writes the specification into a new JSON or
+    YAML file.
     """
 
     spec = ctx.load_spec_file(specfile)
-    ctx.expand_defaults(spec)
-    json.dump(spec, output, indent=4)
+    if expand:
+        ctx.expand_defaults(spec)
 
+    if fmt == 'json':
+        json.dump(spec, output, indent=4)
+    elif fmt == 'yaml':
+        yaml.dump(spec, output, Dumper=yaml.SafeDumper)
