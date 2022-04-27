@@ -33,6 +33,7 @@ from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.curation import curate
 from fbcam.fuzzyonions.store import store, Store
 from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
+from fbcam.fuzzyonions.database import DatabaseHelper
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -66,6 +67,7 @@ class FzoContext(object):
     def reset(self, options=None):
         self._store = None
         self._tracker = None
+        self._database = None
 
         self._config.clear()
 
@@ -89,6 +91,15 @@ class FzoContext(object):
             self._tracker = DatasetTracker(self._config)
         return self._tracker
 
+    @property
+    def database(self):
+        if self._database is None:
+            self._database = DatabaseHelper(self._config)
+        return self._database
+
+    def cleanup(self):
+        if self._database is not None:
+            self._database.close()
 
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
@@ -111,6 +122,8 @@ def main(ctx, config):
 
     if not context.has_config:
         ctx.invoke(conf)
+
+    ctx.call_on_close(context.cleanup)
 
 
 @main.command()
