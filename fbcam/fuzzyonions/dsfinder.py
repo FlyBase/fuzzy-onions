@@ -41,6 +41,14 @@ class DiscoverContext(object):
                                 fallback='flybase-papers.tsv')
 
     @property
+    def scea_dataset_file(self):
+        return self._config.get('discovery', 'scea_dataset_list')
+
+    @property
+    def scea_staging_dataset_file(self):
+        return self._config.get('discovery', 'scea_staging_list')
+
+    @property
     def cursor(self):
         return self._database.cursor
 
@@ -52,6 +60,13 @@ class DiscoverContext(object):
             script = self._config.get('textmining', 'grep_script')
             self._miner = TextMiner(hostname, directory, script)
         return self._miner
+
+    def filter_out_known_datasets(self, pmids):
+        table = read_csv(self.scea_dataset_file, dtype=str)
+        results = [p for p in pmids if p not in table['PubMed ID'].values]
+
+        table = read_csv(self.scea_staging_dataset_file, dtype=str)
+        return [p for p in results if p not in table['PMID'].values]
 
     def get_dataset_fbrfs(self):
         """Get all references that have been flagged with 'dataset'."""
@@ -252,3 +267,21 @@ def findnew(obj, filename, output):
         table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
 
     table.to_csv(output, index=False, sep='\t')
+
+
+@discover.command()
+@click.option('--output', '-o', type=click.File('w'), default='-',
+              help="Send output to the specified file.")
+@click.pass_obj
+def toscea(obj, output):
+    """Make a list of datasets that are new to the SCEA."""
+
+    table = read_csv(obj.flybase_table_file, sep='\t', dtype=str)
+    subset = table[table['Confirmed'] == 'yes']
+    unknown_pmids = obj.filter_out_known_datasets(subset['PMID'].values)
+
+    subset = table[table['PMID'].isin(unknown_pmids)]
+    subset = table.loc[table['PMID'].isin(unknown_pmids),
+                       ['FBrf', 'PMID', 'Accessions', 'Citation',
+                        'Organ/tissue', 'Comments']]
+    subset.to_csv(output, sep='\t', index=False)
