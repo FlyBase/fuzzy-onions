@@ -22,6 +22,7 @@
 from datetime import datetime
 from enum import Enum
 from os.path import exists
+from shutil import copyfile
 import json
 
 import click
@@ -149,6 +150,7 @@ class DatasetTracker(object):
 
         if newfile is None:
             newfile = self._db_file
+            copyfile(newfile, f'{newfile}.bak')
         with open(newfile, 'w') as f:
             json.dump([d.to_dict() for d in self.datasets], f, indent=2)
 

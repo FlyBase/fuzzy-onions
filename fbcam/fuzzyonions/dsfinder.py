@@ -21,6 +21,7 @@
 
 import os.path
 import subprocess
+from shutil import copyfile
 
 import click
 from click_shell.core import make_click_shell
@@ -228,8 +229,6 @@ def findnew(obj, filename, output):
 
     if filename is None:
         filename = obj.flybase_table_file
-    if output is None:
-        output = filename
 
     if not os.path.exists(filename):
         table = DataFrame(columns=['FBrf', 'PMID', 'Citation', 'Accessions',
@@ -266,6 +265,9 @@ def findnew(obj, filename, output):
     for fbrf, nmatch in mentions.items():
         table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
 
+    if output is None:
+        output = filename
+        copyfile(output, f'{output}.bak')
     table.to_csv(output, index=False, sep='\t')
 
 
