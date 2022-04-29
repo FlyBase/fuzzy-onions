@@ -34,6 +34,7 @@ from fbcam.fuzzyonions.curation import curate
 from fbcam.fuzzyonions.store import store, Store
 from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 from fbcam.fuzzyonions.database import DatabaseHelper
+from fbcam.fuzzyonions.dsfinder import discover
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -101,6 +102,7 @@ class FzoContext(object):
         if self._database is not None:
             self._database.close()
 
+
 @shell(context_settings={'help_option_names': ['-h', '--help']},
        prompt="fzo> ")
 @click.version_option(version=__version__, message=prog_notice)
@@ -165,6 +167,7 @@ main.add_command(store)
 main.add_command(curate)
 main.add_command(explorer)
 main.add_command(tracker)
+main.add_command(discover)
 
 if __name__ == '__main__':
     main()

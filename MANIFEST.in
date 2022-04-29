@@ -1,2 +1,2 @@
-include COPYING README.md requirements.txt
+include COPYING README.md requirements.txt grep-svm.sh
 graft docs

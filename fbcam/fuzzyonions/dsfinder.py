@@ -1,0 +1,239 @@
+# fuzzy-onions - FlyBase scRNAseq scripts
+# Copyright © 2022 Damien Goutte-Gattat
+#
+# Redistribution and use of this script, with or without modifications,
+# is permitted provided that the following conditions are met:
+#
+# 1. Redistributions of this script must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+import os.path
+import subprocess
+
+import click
+from click_shell.core import make_click_shell
+from pandas import read_csv, DataFrame
+
+
+class DiscoverContext(object):
+    """A helper object for all discovery operations."""
+
+    def __init__(self, config, database):
+        self._config = config
+        self._database = database
+        self._miner = None
+
+    @property
+    def cursor(self):
+        return self._database.cursor
+
+    @property
+    def textminer(self):
+        if self._miner is None:
+            hostname = self._config.get('textmining', 'host')
+            directory = self._config.get('textmining', 'directory')
+            script = self._config.get('textmining', 'script')
+            self._miner = TextMiner(hostname, directory, script)
+        return self._miner
+
+    def get_dataset_fbrfs(self):
+        """Get all references that have been flagged with 'dataset'."""
+
+        query = f'''SELECT pub.uniquename
+                    FROM
+                             pub
+                        JOIN pubprop USING (pub_id)
+                        JOIN cvterm  ON pubprop.type_id = cvterm.cvterm_id
+                        JOIN cv      USING (cv_id)
+                    WHERE
+                             cv.name         LIKE 'pubprop type'
+                         AND cvterm.name     LIKE 'harv_flag'
+                         AND pubprop.value   LIKE 'dataset'
+                         AND pub.is_obsolete = 'f';'''
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def get_internalnotes_for_fbrf(self, fbrf):
+        """Get the internal notes for a given reference."""
+
+        query = f'''SELECT pubprop.value
+                    FROM
+                             pub
+                        JOIN pubprop USING (pub_id)
+                        JOIN cvterm  ON pubprop.type_id = cvterm.cvterm_id
+                        JOIN cv      USING (cv_id)
+                    WHERE
+                             cv.name        LIKE 'pubprop type'
+                         AND cvterm.name    LIKE 'internalnotes'
+                         AND pub.uniquename LIKE '{fbrf}';'''
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def get_dataset_accessions_for_fbrf(self, fbrf):
+        """Get dataset accession numbers associated with a reference."""
+
+        notes = self.get_internalnotes_for_fbrf(fbrf)
+        accessions = []
+        for note in notes:
+            for line in note[0].split('\n'):
+                if not line.startswith('Dataset:'):
+                    continue
+                line = line[8:].strip().split('.')[0]
+                for item in line.split(','):
+                    item = item.strip()
+                    if item.startswith('and '):
+                        item = item[3:].strip()
+                    if item == 'pheno':
+                        continue
+                    accessions.append(item)
+        return ','.join(accessions)
+
+    def get_pmid_for_fbrf(self, fbrf):
+        """Get the PubMed ID for a given reference."""
+
+        query = f'''SELECT dbxref.accession
+                    FROM
+                             pub
+                        JOIN pub_dbxref USING (pub_id)
+                        JOIN dbxref     USING (dbxref_id)
+                        JOIN db         USING (db_id)
+                    WHERE
+                             db.name        LIKE 'pubmed'
+                         AND pub.uniquename LIKE '{fbrf}';'''
+        self.cursor.execute(query)
+        return ','.join([a for a, in self.cursor.fetchall()])
+
+    def get_citation_for_fbrf(self, fbrf):
+        """Get a text citation for a given reference."""
+
+        query = f'''SELECT pubauthor.surname, pubauthor.rank, pub.pyear
+                    FROM
+                             pubauthor
+                        JOIN pub USING (pub_id)
+                    WHERE
+                             pub.uniquename LIKE '{fbrf}'
+                    ORDER BY pubauthor.rank;'''
+        self.cursor.execute(query)
+        res = self.cursor.fetchall()
+        year = res[0][2]
+        n = len(res)
+        if n == 1:
+            return f'{res[0][0]}, {year}'
+        elif n == 2:
+            return f'{res[0][0]} and {res[1][0]}, {year}'
+        else:
+            return f'{res[0][0]} et al., {year}'
+
+    def grep_fulltexts(self, references):
+        self.textminer.open()
+        regex = self._config.get('textmining', 'regex')
+        res = self.textminer.grep(regex, references)
+        self.textminer.close()
+
+        return res
+
+
+class TextMiner(object):
+    """A helper object to grep the fulltext archive."""
+
+    def __init__(self, hostname, directory, script):
+        self._hostname = hostname
+        self._directory = directory
+        self._script = script
+        self._ready = False
+
+    def open(self):
+        if not self._ready:
+            subprocess.run(['scp', self._script,
+                            f'{self._hostname}:grep-svm.sh'])
+            self._ready = True
+
+    def close(self):
+        if self._ready:
+            subprocess.run(['ssh', self._hostname, 'rm grep-svm.sh'])
+            self._ready = False
+
+    def grep(self, regex, references):
+        lines = [f'{a} {b}' for a, b in references]
+        command = f"bash ./grep-svm.sh {self._directory} '{regex}'"
+        ssh = subprocess.Popen(['ssh', self._hostname, command],
+                               shell=False, text=True,
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        output, _ = ssh.communicate('\n'.join(lines))
+
+        res = {}
+        for line in output.split('\n'):
+            line = line.strip()
+            if '\t' not in line:
+                continue
+            fbrf, nmatches = line.split('\t')
+            res[fbrf] = nmatches
+        return res
+
+
+@click.group(invoke_without_command=True)
+@click.pass_context
+def discover(ctx):
+    """Access the dataset discovery commands."""
+
+    ctx.obj = DiscoverContext(ctx.obj.config, ctx.obj.database)
+
+    if not ctx.invoked_subcommand:
+        shell = make_click_shell(ctx, prompt="fzo-discover> ")
+        shell.cmdloop()
+
+
+@discover.command()
+@click.argument('filename')
+@click.pass_obj
+def findnew(obj, filename):
+    """Find new FlyBase references that may be about scRNAseq."""
+
+    if not os.path.exists(filename):
+        table = DataFrame(columns=['FBrf', 'PMID', 'Citation', 'Accessions',
+                                   'Mentions', 'Confirmed', 'Organ/tissue',
+                                   'Comments'], dtype=str)
+    else:
+        table = read_csv(filename, sep='\t', dtype=str)
+
+    click.echo("Fetching dataset-flagged references...")
+    fbrfs = obj.get_dataset_fbrfs()
+
+    click.echo("Fetching additional data...")
+    newrows = []
+    with click.progressbar(fbrfs) as bar:
+        for fbrf, in bar:
+            if fbrf in table['FBrf'].values:
+                continue
+
+            pmid = obj.get_pmid_for_fbrf(fbrf)
+            accessions = obj.get_dataset_accessions_for_fbrf(fbrf)
+            citation = obj.get_citation_for_fbrf(fbrf)
+            newrows.append({'FBrf': fbrf, 'PMID': pmid, 'Citation': citation,
+                            'Accessions': accessions})
+
+    click.echo(f"New dataset-flagged references: {len(newrows)}")
+    if len(newrows) == 0:
+        return
+
+    table = table.append(newrows)
+
+    click.echo("Querying the fulltext archive...")
+    queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
+    mentions = obj.grep_fulltexts(queries)
+    for fbrf, nmatch in mentions.items():
+        table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
+
+    table.to_csv(filename, index=False, sep='\t')
