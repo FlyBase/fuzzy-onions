@@ -157,8 +157,10 @@ def conf(ctx):
 
         defaults = {
             'store': {'production': store_dir},
-            'curation': {'proformae': proformae_dir},
-            'tracking': {'file': '{}/track.json'.format(click.get_app_dir('fuzzyonions'))}
+            'curation': {
+                'proformae': proformae_dir,
+                'trackfile': '{}/track.json'.format(click.get_app_dir('fuzzyonions'))
+                }
             }
         ctx.reset(options=defaults)
 

@@ -44,7 +44,7 @@ class DiscoverContext(object):
         if self._miner is None:
             hostname = self._config.get('textmining', 'host')
             directory = self._config.get('textmining', 'directory')
-            script = self._config.get('textmining', 'script')
+            script = self._config.get('textmining', 'grep_script')
             self._miner = TextMiner(hostname, directory, script)
         return self._miner
 
@@ -138,7 +138,7 @@ class DiscoverContext(object):
 
     def grep_fulltexts(self, references):
         self.textminer.open()
-        regex = self._config.get('textmining', 'regex')
+        regex = self._config.get('textmining', 'grep_regex')
         res = self.textminer.grep(regex, references)
         self.textminer.close()
 

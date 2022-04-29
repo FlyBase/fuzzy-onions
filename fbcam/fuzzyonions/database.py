@@ -33,11 +33,11 @@ class DatabaseHelper(object):
     @property
     def connection(self):
         if self._conn is None:
-            host = self._config.get('database', 'host',
+            host = self._config.get('chado', 'host',
                                     fallback='chado.flybase.org')
-            name = self._config.get('database', 'database', fallback='flybase')
-            user = self._config.get('database', 'user', fallback='flybase')
-            pswd = self._config.get('database', 'password', fallback=None)
+            name = self._config.get('chado', 'database', fallback='flybase')
+            user = self._config.get('chado', 'user', fallback='flybase')
+            pswd = self._config.get('chado', 'password', fallback=None)
             self._conn = connect(host=host, database=name, user=user,
                                  password=pswd)
         return self._conn

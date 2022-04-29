@@ -19,8 +19,8 @@ Here is a sample configuration file:
 production: <path to a directory containing the datasets>
 staging: <same, but for datasets from the staging server>
 
-[proformae]
-directory: <path to a directory containing FlyBase's proformae files>
+[curation]
+proformae: <path to a directory containing FlyBase's proformae files>
 ```
 
 

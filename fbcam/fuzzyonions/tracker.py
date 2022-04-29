@@ -116,7 +116,7 @@ class DatasetTracker(object):
     """
 
     def __init__(self, config):
-        self._db_file = config.get('tracking', 'file')
+        self._db_file = config.get('curation', 'trackfile')
         self._datasets = None
 
     @property
