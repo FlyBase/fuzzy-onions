@@ -36,6 +36,11 @@ class DiscoverContext(object):
         self._miner = None
 
     @property
+    def flybase_table_file(self):
+        return self._config.get('discovery', 'flybase_papers_list',
+                                fallback='flybase-papers.tsv')
+
+    @property
     def cursor(self):
         return self._database.cursor
 
@@ -196,10 +201,20 @@ def discover(ctx):
 
 
 @discover.command()
-@click.argument('filename')
+@click.option('--filename', '-f', default=None, metavar='FILENAME',
+              help="""Use the given table file instead of the one
+                      specified in the configuration.""")
+@click.option('--output', '-o', default=None, metavar='FILENAME',
+              help="""Write the updated table to the specified file.
+                      The default is to write to the original file.""")
 @click.pass_obj
-def findnew(obj, filename):
+def findnew(obj, filename, output):
     """Find new FlyBase references that may be about scRNAseq."""
+
+    if filename is None:
+        filename = obj.flybase_table_file
+    if output is None:
+        output = filename
 
     if not os.path.exists(filename):
         table = DataFrame(columns=['FBrf', 'PMID', 'Citation', 'Accessions',
@@ -236,4 +251,4 @@ def findnew(obj, filename):
     for fbrf, nmatch in mentions.items():
         table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
 
-    table.to_csv(filename, index=False, sep='\t')
+    table.to_csv(output, index=False, sep='\t')
