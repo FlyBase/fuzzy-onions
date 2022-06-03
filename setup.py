@@ -34,31 +34,15 @@ setup(
         'Programming Language :: Python :: 3.9',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: BSD License',
-        'Topic :: Scientific/Engineering :: Bio-Informatics'
-        ],
-
-    install_requires=[
-        'requests',
-        'click_shell',
-        'pandas',
-        'IPython'
-        ],
-
-    packages=[
-        'fbcam',
-        'fbcam.fuzzyonions'
-        ],
-
-    entry_points={
-        'console_scripts': [
-            'fzo = fbcam.fuzzyonions.main:main'
-            ]
-        },
-
+        'Topic :: Scientific/Engineering :: Bio-Informatics',
+    ],
+    install_requires=['requests', 'click_shell', 'pandas', 'IPython'],
+    packages=['fbcam', 'fbcam.fuzzyonions'],
+    entry_points={'console_scripts': ['fzo = fbcam.fuzzyonions.main:main']},
     command_options={
         'build_sphinx': {
             'version': ('setup.py', __version__),
-            'release': ('setup.py', __version__)
-            }
+            'release': ('setup.py', __version__),
         }
-    )
+    },
+)

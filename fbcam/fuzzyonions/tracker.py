@@ -62,56 +62,56 @@ class JsonEnum(Enum):
 class SceaStatus(JsonEnum):
     """Status of a dataset in the SCEA pipeline."""
 
-    UNKNOWN = 0,
-    IN_QUEUE = 1,
-    IN_PROGRESS = 2,
-    IN_STAGING = 3,
+    UNKNOWN = 0
+    IN_QUEUE = 1
+    IN_PROGRESS = 2
+    IN_STAGING = 3
     IN_PRODUCTION = 4
 
 
 class FlyBaseRecordStatus(JsonEnum):
     """Status of a FlyBase record for a dataset."""
 
-    UNKNOWN = 0,
-    IN_PROGRESS = 1,
-    READY = 2,
-    LOADING = 3,
-    LOADED = 4,
+    UNKNOWN = 0
+    IN_PROGRESS = 1
+    READY = 2
+    LOADING = 3
+    LOADED = 4
     IN_PRODUCTION = 5
 
 
 class FlyBaseEvaluation(JsonEnum):
     """FlyBase decision about integrating a dataset."""
 
-    UNKNOWN = 0,
-    INCLUDE = 1,
-    EXCLUDE = 2,
+    UNKNOWN = 0
+    INCLUDE = 1
+    EXCLUDE = 2
     HOLD = 3
 
 
 class CorrectionStatus(JsonEnum):
     """Status of a correction set."""
 
-    UNKNOWN = 0,
-    NOT_NEEDED = 1,
-    TODO = 2,
+    UNKNOWN = 0
+    NOT_NEEDED = 1
+    TODO = 2
     DONE = 3
 
 
 class CellTypeAvailability(JsonEnum):
     """Status of cell type annotations."""
 
-    UNKNOWN = 0,
-    INEXISTENT = 1,
-    INPUT_ONLY = 2,
-    UPSTREAM = 3,
-    OBTAINED = 4,
+    UNKNOWN = 0
+    INEXISTENT = 1
+    INPUT_ONLY = 2
+    UPSTREAM = 3
+    OBTAINED = 4
     AVAILABLE = 5
 
 
 class DatasetTracker(object):
     """Helper object to track datasets.
-    
+
     This class encapsulates a JSON file containing the informations
     to be tracked about the datasets.
     """
@@ -164,7 +164,7 @@ class DatasetTracker(object):
         if staging:
             status = SceaStatus.IN_STAGING
 
-        ds = { 'scea': { 'dataset_id': dsid, 'status': str(status)} }
+        ds = {'scea': {'dataset_id': dsid, 'status': str(status)}}
         self._datasets.append(TrackedDataset.from_dict(ds))
 
     def promote_to_production(self, dsid):
@@ -200,7 +200,7 @@ class TrackedDataset(object):
         return self._ctypes
 
     def to_dict(self):
-        d = { 'scea': self._scea.to_dict() }
+        d = {'scea': self._scea.to_dict()}
         if not self.flybase.is_empty:
             d['flybase'] = self.flybase.to_dict()
         if self.cell_types._status != CellTypeAvailability.UNKNOWN:
@@ -249,7 +249,7 @@ class SceaData(object):
         self._upstream_id = value
 
     def to_dict(self):
-        d = { 'dataset_id': self._dataset_id }
+        d = {'dataset_id': self._dataset_id}
         if self._upstream_id:
             d['upstream_id'] = self._upstream_id
         if self._status != SceaStatus.UNKNOWN:
@@ -279,10 +279,12 @@ class FlyBaseData(object):
 
     @property
     def is_empty(self):
-        return (self._reference is None and
-                self._decision == FlyBaseEvaluation.UNKNOWN and
-                self._status == FlyBaseRecordStatus.UNKNOWN and
-                self._sumexpr == FlyBaseRecordStatus.UNKNOWN)
+        return (
+            self._reference is None
+            and self._decision == FlyBaseEvaluation.UNKNOWN
+            and self._status == FlyBaseRecordStatus.UNKNOWN
+            and self._sumexpr == FlyBaseRecordStatus.UNKNOWN
+        )
 
     @property
     def reference(self):
@@ -355,15 +357,15 @@ class FlyBaseData(object):
         if self._reference:
             d['fbrf'] = self._reference
         if self._decision != FlyBaseEvaluation.UNKNOWN:
-            d['evaluation'] = { 'decision': str(self._decision) }
+            d['evaluation'] = {'decision': str(self._decision)}
             if self._comment:
                 d['evaluation']['comment'] = self._comment
         if self._status != FlyBaseRecordStatus.UNKNOWN:
-            d['record'] = { 'status': str(self._status) }
+            d['record'] = {'status': str(self._status)}
             if self._name:
                 d['record']['name'] = self._name
         if self._sumexpr != FlyBaseRecordStatus.UNKNOWN:
-            d['sumexpr'] = { 'status': str(self._sumexpr)}
+            d['sumexpr'] = {'status': str(self._sumexpr)}
         if self.corrections.status != CorrectionStatus.UNKNOWN:
             d['corrections'] = self.corrections.to_dict()
         return d
@@ -376,17 +378,20 @@ class FlyBaseData(object):
 
         if 'evaluation' in data:
             new._decision = FlyBaseEvaluation.from_str(
-                data['evaluation'].get('decision', 'unknown'))
+                data['evaluation'].get('decision', 'unknown')
+            )
             new._comment = data['evaluation'].get('comment')
 
         if 'record' in data:
             new._status = FlyBaseRecordStatus.from_str(
-                data['record'].get('status', 'unknown'))
+                data['record'].get('status', 'unknown')
+            )
             new._name = data['record'].get('name')
 
         if 'sumexpr' in data:
             new._sumexpr = FlyBaseRecordStatus.from_str(
-                data['sumexpr'].get('status', 'unknown'))
+                data['sumexpr'].get('status', 'unknown')
+            )
 
         if 'corrections' in data:
             new._corrections = CorrectionData.from_dict(data['corrections'])
@@ -394,7 +399,7 @@ class FlyBaseData(object):
         return new
 
 
-class CorrectionData():
+class CorrectionData:
     """Represents the informations about a correction set."""
 
     def __init__(self):
@@ -432,7 +437,7 @@ class CorrectionData():
             return "unknown"
 
     def to_dict(self):
-        d = { 'status': str(self._status) }
+        d = {'status': str(self._status)}
         if self._submitted:
             d['submitted'] = self._submitted.strftime('%Y-%m-%d')
         return d
@@ -475,8 +480,7 @@ class CellTypesData(object):
 
     @property
     def need_request(self):
-        return (self._status == CellTypeAvailability.UPSTREAM and
-                self._requested is None)
+        return self._status == CellTypeAvailability.UPSTREAM and self._requested is None
 
     def set_to_request(self):
         """Marks that cell types are to be requested."""
@@ -517,7 +521,7 @@ class CellTypesData(object):
             return f"requested on {self._requested:%Y-%m-%d}"
 
     def to_dict(self):
-        d = { 'status': str(self._status) }
+        d = {'status': str(self._status)}
         if self._requested:
             d['requested'] = self._requested.strftime('%Y-%m-%d')
         if self._obtained:
@@ -550,29 +554,50 @@ def tracker(ctx):
 
 
 @tracker.command('list')
-@click.option('--long', '-l', is_flag=True, default=False,
-              help="Show more details than just the dataset ID.")
-@click.option('--tab', '-t', is_flag=True, default=False,
-              help="Use tab-separated columns.")
-@click.option('--scea-status', type=click.Choice(SceaStatus.values()),
-              callback=SceaStatus.from_click,
-              help="Filter datasets on their SCEA status.")
-@click.option('--fb-decision', type=click.Choice(FlyBaseEvaluation.values()),
-              callback=FlyBaseEvaluation.from_click,
-              help="Filter datasets on the FlyBase decision status.")
-@click.option('--fb-status', type=click.Choice(FlyBaseRecordStatus.values()),
-              callback=FlyBaseRecordStatus.from_click,
-              help="Filter datasets on their FlyBase curation status.")
-@click.option('--ct-status', type=click.Choice(CellTypeAvailability.values()),
-              callback=CellTypeAvailability.from_click,
-              help="Filter datasets on cell types availability.")
+@click.option(
+    '--long',
+    '-l',
+    is_flag=True,
+    default=False,
+    help="Show more details than just the dataset ID.",
+)
+@click.option(
+    '--tab', '-t', is_flag=True, default=False, help="Use tab-separated columns."
+)
+@click.option(
+    '--scea-status',
+    type=click.Choice(SceaStatus.values()),
+    callback=SceaStatus.from_click,
+    help="Filter datasets on their SCEA status.",
+)
+@click.option(
+    '--fb-decision',
+    type=click.Choice(FlyBaseEvaluation.values()),
+    callback=FlyBaseEvaluation.from_click,
+    help="Filter datasets on the FlyBase decision status.",
+)
+@click.option(
+    '--fb-status',
+    type=click.Choice(FlyBaseRecordStatus.values()),
+    callback=FlyBaseRecordStatus.from_click,
+    help="Filter datasets on their FlyBase curation status.",
+)
+@click.option(
+    '--ct-status',
+    type=click.Choice(CellTypeAvailability.values()),
+    callback=CellTypeAvailability.from_click,
+    help="Filter datasets on cell types availability.",
+)
 @click.pass_obj
-def list_tracked_datasets(ctx, long, tab, scea_status, fb_decision, fb_status,
-                          ct_status):
+def list_tracked_datasets(
+    ctx, long, tab, scea_status, fb_decision, fb_status, ct_status
+):
     """List tracked datasets."""
 
     if long:
-        print("Dataset ID       EBI Status       FlyBase Status   Cell Types                       Corrections")
+        print(
+            "Dataset ID       EBI Status       FlyBase Status   Cell Types                       Corrections"
+        )
     elif tab:
         print("Dataset ID\tEBI Status\tFlyBase Status\tCell Types\tCorrections")
 
@@ -590,9 +615,13 @@ def list_tracked_datasets(ctx, long, tab, scea_status, fb_decision, fb_status,
             continue
 
         if long:
-            print(f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string():32} {ds.flybase.corrections.to_string()}")
+            print(
+                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string():32} {ds.flybase.corrections.to_string()}"
+            )
         elif tab:
-            print(f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}\t{ds.flybase.corrections.to_string()}")
+            print(
+                f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}\t{ds.flybase.corrections.to_string()}"
+            )
         else:
             print(ds.scea.identifier)
 
@@ -641,39 +670,75 @@ def add(ctx, dsid):
 @tracker.command()
 @click.argument('dsid')
 @click.option('--upstream-id', help="Set the upstream identifier.")
-@click.option('--cell-types',
-              type=click.Choice(CellTypeAvailability.values()),
-              callback=CellTypeAvailability.from_click,
-              help="Update what’s known about cell type annotations.")
-@click.option('--set-request-date', 'ct_request_date', type=click.DateTime(),
-              help="Set the date when cell types were requested.")
-@click.option('--set-obtained-date', 'ct_reply_date', type=click.DateTime(),
-              help="Set the date when cell types were obtained.")
-@click.option('--decide', 'decision',
-              type=click.Choice(FlyBaseEvaluation.values()),
-              callback=FlyBaseEvaluation.from_click,
-              help="Set the FlyBase decision status.")
-@click.option('--record-status',
-              type=click.Choice(FlyBaseRecordStatus.values()),
-              callback=FlyBaseRecordStatus.from_click,
-              help="Set the status of the FlyBase record.")
-@click.option('--sumexpr-status',
-              type=click.Choice(FlyBaseRecordStatus.values()),
-              callback=FlyBaseRecordStatus.from_click,
-              help="Set the status of the summarised expression table.")
+@click.option(
+    '--cell-types',
+    type=click.Choice(CellTypeAvailability.values()),
+    callback=CellTypeAvailability.from_click,
+    help="Update what’s known about cell type annotations.",
+)
+@click.option(
+    '--set-request-date',
+    'ct_request_date',
+    type=click.DateTime(),
+    help="Set the date when cell types were requested.",
+)
+@click.option(
+    '--set-obtained-date',
+    'ct_reply_date',
+    type=click.DateTime(),
+    help="Set the date when cell types were obtained.",
+)
+@click.option(
+    '--decide',
+    'decision',
+    type=click.Choice(FlyBaseEvaluation.values()),
+    callback=FlyBaseEvaluation.from_click,
+    help="Set the FlyBase decision status.",
+)
+@click.option(
+    '--record-status',
+    type=click.Choice(FlyBaseRecordStatus.values()),
+    callback=FlyBaseRecordStatus.from_click,
+    help="Set the status of the FlyBase record.",
+)
+@click.option(
+    '--sumexpr-status',
+    type=click.Choice(FlyBaseRecordStatus.values()),
+    callback=FlyBaseRecordStatus.from_click,
+    help="Set the status of the summarised expression table.",
+)
 @click.option('--comment', help="Set the comment from the FlyBase curator.")
 @click.option('--reference', help="Set the associated FlyBase reference.")
 @click.option('--record', help="Set the name of the FlyBase record.")
-@click.option('--corrections',
-              type=click.Choice(CorrectionStatus.values()),
-              callback=CorrectionStatus.from_click,
-              help="Set the status of correction sets.")
-@click.option('--set-correction-date', 'corr_date', type=click.DateTime(),
-              help="Set the date when corrections were submitted.")
+@click.option(
+    '--corrections',
+    type=click.Choice(CorrectionStatus.values()),
+    callback=CorrectionStatus.from_click,
+    help="Set the status of correction sets.",
+)
+@click.option(
+    '--set-correction-date',
+    'corr_date',
+    type=click.DateTime(),
+    help="Set the date when corrections were submitted.",
+)
 @click.pass_obj
-def update(ctx, dsid, upstream_id, cell_types, ct_request_date, ct_reply_date,
-           decision, record_status, sumexpr_status, comment, reference, record,
-           corrections, corr_date):
+def update(
+    ctx,
+    dsid,
+    upstream_id,
+    cell_types,
+    ct_request_date,
+    ct_reply_date,
+    decision,
+    record_status,
+    sumexpr_status,
+    comment,
+    reference,
+    record,
+    corrections,
+    corr_date,
+):
     """Update informations about a dataset."""
 
     ds = ctx.tracker.get_dataset(dsid)
@@ -716,9 +781,12 @@ def update(ctx, dsid, upstream_id, cell_types, ct_request_date, ct_reply_date,
 
 
 @tracker.command()
-@click.option('--filename', '-f',
-              type=click.Path(exists=False, writable=True, dir_okay=False),
-              help="Write to a different file.")
+@click.option(
+    '--filename',
+    '-f',
+    type=click.Path(exists=False, writable=True, dir_okay=False),
+    help="Write to a different file.",
+)
 @click.pass_obj
 def save(ctx, filename):
     """Write modification to the tracking data."""

@@ -33,11 +33,11 @@ from fbcam.fuzzyonions.matrixmarket import MatrixMarketFile
 
 
 class DataType(IntFlag):
-    EXPERIMENT_METADATA = 1,
-    EXPERIMENT_DESIGN = 2,
-    CLUSTERS = 4,
-    MARKER_GENES = 8,
-    NORMALISED_EXPRESSION_DATA = 16,
+    EXPERIMENT_METADATA = 1
+    EXPERIMENT_DESIGN = 2
+    CLUSTERS = 4
+    MARKER_GENES = 8
+    NORMALISED_EXPRESSION_DATA = 16
     RAW_EXPRESSION_DATA = 32
 
 
@@ -48,10 +48,12 @@ class FileStore(object):
         self._directory = directory
         self._staging = staging
         self._downloader = Downloader(directory, staging)
-        self._datatypes = (DataType.EXPERIMENT_DESIGN
-                           | DataType.EXPERIMENT_METADATA
-                           | DataType.NORMALISED_EXPRESSION_DATA
-                           | DataType.RAW_EXPRESSION_DATA)
+        self._datatypes = (
+            DataType.EXPERIMENT_DESIGN
+            | DataType.EXPERIMENT_METADATA
+            | DataType.NORMALISED_EXPRESSION_DATA
+            | DataType.RAW_EXPRESSION_DATA
+        )
 
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -68,7 +70,7 @@ class FileStore(object):
 
     def get(self, dsid, download=True):
         """Gets a single dataset.
-        
+
         :param dsid: the dataset ID
         :param download: if True (the default), the dataset will be
             downloaded if it is not already available locally
@@ -82,8 +84,9 @@ class FileStore(object):
                 return None
             elif not self._downloader.get(dsid, self._datatypes):
                 return None
-            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid),
-                                           self._staging)
+            self._datasets[dsid] = Dataset(
+                os.path.join(self._directory, dsid), self._staging
+            )
 
         return self._datasets[dsid]
 
@@ -98,8 +101,9 @@ class FileStore(object):
     def _refresh(self):
         self._datasets = {}
         for dsid in os.listdir(self._directory):
-            self._datasets[dsid] = Dataset(os.path.join(self._directory, dsid),
-                                           self._staging)
+            self._datasets[dsid] = Dataset(
+                os.path.join(self._directory, dsid), self._staging
+            )
 
 
 class Dataset(object):
@@ -111,8 +115,8 @@ class Dataset(object):
         DataType.CLUSTERS: '{}.clusters.tsv',
         DataType.MARKER_GENES: '{}-marker-genes-files',
         DataType.NORMALISED_EXPRESSION_DATA: '{}.aggregated_filtered_normalised_counts.mtx',
-        DataType.RAW_EXPRESSION_DATA: '{}.aggregated_filtered_counts.mtx'
-        }
+        DataType.RAW_EXPRESSION_DATA: '{}.aggregated_filtered_counts.mtx',
+    }
 
     def __init__(self, directory, staging=False):
         self._directory = directory
@@ -133,8 +137,9 @@ class Dataset(object):
     def available_data(self):
         """Gets a list of locally-available data for this dataset."""
 
-        return [d for d, f in Dataset.FILES.items()
-                if f.format(self._id) in self._files]
+        return [
+            d for d, f in Dataset.FILES.items() if f.format(self._id) in self._files
+        ]
 
     @property
     def experiment_design(self):
@@ -142,8 +147,9 @@ class Dataset(object):
 
         if self._expdesign is None:
             f = Dataset.FILES[DataType.EXPERIMENT_DESIGN].format(self._id)
-            self._expdesign = pandas.read_csv(os.path.join(self._directory, f),
-                                              sep='\t', low_memory=False)
+            self._expdesign = pandas.read_csv(
+                os.path.join(self._directory, f), sep='\t', low_memory=False
+            )
         return self._expdesign
 
     def get_expression_matrix(self, raw=True):
@@ -182,12 +188,12 @@ class Downloader(object):
         DataType.CLUSTERS: ('cluster', False),
         DataType.MARKER_GENES: ('marker-genes', True),
         DataType.NORMALISED_EXPRESSION_DATA: ('normalised', True),
-        DataType.RAW_EXPRESSION_DATA: ('quantification-raw', True)
-        }
+        DataType.RAW_EXPRESSION_DATA: ('quantification-raw', True),
+    }
 
     def __init__(self, destination, staging=False):
         """Creates a new Downloader object.
-        
+
         :param destination: the directory to store the downloaded
             files into
         :param base: an alternative URL to download from
@@ -201,7 +207,7 @@ class Downloader(object):
 
     def get(self, dsid, data_type):
         """Download a dataset file from the SCEA.
-        
+
         :param dsid: the dataset ID
         :param data_type: the type of data to download
         :return: True if the download was successful, False otherwise

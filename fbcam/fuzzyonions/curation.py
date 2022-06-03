@@ -74,7 +74,7 @@ class SourceDataset(object):
 
     def get_simplified_cell_type(self, cell_type):
         """Get a simplified cell type name.
-        
+
         Given an original cell type name, this method returns a
         simplified name that may be used when generating dataset
         symbols.
@@ -91,7 +91,7 @@ class SourceDataset(object):
 
     def apply_corrections(self, only_new=False, target='internal'):
         """Apply correction sets for the specified target.
-        
+
         :param only_new: if True, only apply corrections that do not
             modify existing columns
         :param: target: intended target for the corrections
@@ -122,7 +122,7 @@ class SourceDataset(object):
 
     def feed_data(self, store):
         """Inject raw data from a store.
-        
+
         This method uses the provided store to fetch the raw data
         for the current dataset.
         """
@@ -148,7 +148,7 @@ class CorrectionSet(object):
     @property
     def destination(self):
         """The name of the column to write corrected data to.
-        
+
         If None, the corrections are intended to be applied directly
         to the source column.
         """
@@ -158,7 +158,7 @@ class CorrectionSet(object):
     @property
     def values(self):
         """The corrections proper.
-        
+
         This is a list of tuples, where each tuple contains:
         - the value to correct in the source column;
         - the corrected value to write to the destination column;
@@ -196,7 +196,7 @@ class FlybaseReference(object):
 
 class SourceLab(object):
     """The research group or organisation that created the dataset.
-    
+
     This feeds the LC8c field of the dataset proforma.
     """
 
@@ -219,7 +219,7 @@ class SourceLab(object):
 
 class DatasetBase(object):
     """Base class for all dataset objects.
-    
+
     This class holds data fields that are common to most dataset
     objects, regardless of the level.
     """
@@ -270,7 +270,7 @@ class DatasetBase(object):
     @property
     def entity_type(self):
         """The type of dataset object (LC2a).
-        
+
         This property is overriden in subclasses to automatically
         return the correct value.
         """
@@ -280,7 +280,7 @@ class DatasetBase(object):
     @property
     def data_type(self):
         """The type of data represented in the dataset object (LC2b).
-        
+
         This property is overriden in subclasses to automatically
         return the correct value.
         """
@@ -290,7 +290,7 @@ class DatasetBase(object):
     @property
     def go_cellular_components(self):
         """The cellular components GO terms (LC13a).
-        
+
         This property is an array of strings already in the format
         expected in the LC13a field ("term name ; GO:xxxxxxx"). It
         may be None if GO curation has not been performed, or an
@@ -302,7 +302,7 @@ class DatasetBase(object):
     @property
     def go_molecular_functions(self):
         """The molecular functions GO terms (LC13b).
-        
+
         This property is an array of strings already in the format
         expected in the LC13b field ("term name ; GO:xxxxxxx"). It
         may be None if GO curation has not been performed, or an
@@ -314,7 +314,7 @@ class DatasetBase(object):
     @property
     def go_biological_processes(self):
         """The biological processes GO terms (LC13c).
-        
+
         This property is an array of strings already in the format
         expected in the LC13c field ("term name ; GO:xxxxxxx"). It
         may be None if GO curation has not been performed, or an
@@ -326,7 +326,7 @@ class DatasetBase(object):
     @property
     def so_terms(self):
         """The Sequence Ontology terms (LC13d).
-        
+
         This property is an array of strings already in the format
         expected in the LC13d field ("term name ; SO:xxxxxxx"). It
         may be None if SO curation has not been performed, or an
@@ -337,7 +337,7 @@ class DatasetBase(object):
     @property
     def fbcv(self):
         """The FlyBase Controlled Vocabulary terms (LC11m).
-        
+
         This property is an array of strings already in the format
         expected in the LC11m field ("term name ; FBcv:xxxxxxx"). It
         may be None if FBcv curation has not been performed, or an
@@ -374,7 +374,7 @@ class DatasetBase(object):
     @property
     def species(self):
         """The species of derivation (LC4a).
-        
+
         This property contains a 4-letter species code (typically
         Dmel).
         """
@@ -390,7 +390,7 @@ class DatasetBase(object):
     @property
     def has_count(self):
         """Indicate whether the dataset has a numerical component.
-        
+
         If set to True for a given dataset object, the `count`
         property of that object will contain the value expected for
         the LC6e field.
@@ -407,7 +407,7 @@ class DatasetBase(object):
 
 class ProjectContainer(DatasetBase):
     """A dataset object that can contains subprojects or samples.
-    
+
     An object of this type will either contain subprojects, or it
     will contain samples. It is not expected that a project will
     contain both subprojects and samples.
@@ -434,17 +434,19 @@ class ProjectContainer(DatasetBase):
             symbol = spec['result'].get('symbol')
             title = spec['result'].get('title')
             stage = spec['result'].get('stage')
-            r = Result([s.assay for s in self._samples],
-                       project=self,
-                       symbol=symbol,
-                       title=title,
-                       stage=stage)
+            r = Result(
+                [s.assay for s in self._samples],
+                project=self,
+                symbol=symbol,
+                title=title,
+                stage=stage,
+            )
             self._results.append(r)
 
     @property
     def subprojects(self):
         """The subprojects contained in this project (may be empty).
-        
+
         :return: a list of :class:`ProjectContainer` objects
         """
 
@@ -459,7 +461,7 @@ class ProjectContainer(DatasetBase):
     @property
     def samples(self):
         """The samples contained in this project (may be empty).
-        
+
         :return: a list of :class:`Biosample` objects
         """
 
@@ -474,7 +476,7 @@ class ProjectContainer(DatasetBase):
     @property
     def project(self):
         """The (sub)project this subproject belongs to.
-        
+
         :return: a :class:`ProjectContainer` object, or None if the
             current project is a top-level project
         """
@@ -490,10 +492,10 @@ class ProjectContainer(DatasetBase):
     @property
     def top_project(self):
         """The top-level project this (sub)project is a part of.
-        
+
         If the current object is already a top-level project, this
         property returns the current object itself.
-        
+
         :return: a :class:`Project` object
         """
 
@@ -505,14 +507,14 @@ class ProjectContainer(DatasetBase):
     @property
     def results(self):
         """All the results for the current project.
-        
+
         If the current project contains samples, then this property
         returns the results for all the samples in the project, in
         addition to any project-defined result. If it contains
         subprojects, then this only returns the results defined by
         the current project; use the :meth:`get_all_results` method
         to get the results from all the subprojects.
-        
+
         :return: a list of :class:`Result` objects
         """
 
@@ -542,7 +544,7 @@ class ProjectContainer(DatasetBase):
 
     def get_all_samples(self):
         """Get all samples from all subprojects.
-        
+
         :return: a list of :class:`Biosample` objects
         """
 
@@ -556,7 +558,7 @@ class ProjectContainer(DatasetBase):
 
     def get_all_results(self):
         """Get all results from all subprojects.
-        
+
         :return: a list of :class:`Result` objects
         """
 
@@ -568,7 +570,7 @@ class ProjectContainer(DatasetBase):
 
     def get_assay_single_analysis(self, assay):
         """Get the assay-specific result for the specified assay.
-        
+
         :return: a :class:`Result` object
         """
 
@@ -581,10 +583,10 @@ class ProjectContainer(DatasetBase):
 
     def get_extra_results(self):
         """Get all project-defined results.
-        
+
         This method returns all the results that are *not*
         assay-specific results.
-        
+
         :return: a list of :class:`Result` objects
         """
 
@@ -616,7 +618,7 @@ class Project(ProjectContainer):
     @property
     def sources(self):
         """The list of EBI source datasets for this project.
-        
+
         :return: a list of :class:`SourceDataset` objects
         """
 
@@ -632,7 +634,7 @@ class Project(ProjectContainer):
     @property
     def reference(self):
         """The FlyBase paper reporting this dataset.
-        
+
         :return: a :class:`FlyBaseReference` object
         """
 
@@ -641,7 +643,7 @@ class Project(ProjectContainer):
     @property
     def lab(self):
         """The research group that created this dataset.
-        
+
         :return: a :class:`SourceLab` object
         """
 
@@ -650,7 +652,7 @@ class Project(ProjectContainer):
     @property
     def min_cluster_size(self):
         """The minimal number of cells in a cluster.
-        
+
         If a cluster in the source dataset contains less than this
         threshold, the cluster is excluded from the results.
         """
@@ -665,11 +667,11 @@ class Project(ProjectContainer):
 
     def extract_reads(self):
         """Extract the number of sequencing reads for each sample.
-        
+
         This method parses the EBI "Raw Expression Matrix" to get the
         number of sequencing reads for each sample described in this
         project (or its subprojects).
-        
+
         After extraction, the number of sequencing reads is available
         in the :attr:`count` property of the :class:`Assay` object
         associated with each sample.
@@ -686,7 +688,11 @@ class Project(ProjectContainer):
 
         for source in self.sources:
             with source.data.get_expression_matrix(raw=True) as mmf:
-                mmf.set_progress_callback(lambda p: logging.info(f"Reading expression matrix: {p}% complete..."))
+                mmf.set_progress_callback(
+                    lambda p: logging.info(
+                        f"Reading expression matrix: {p}% complete..."
+                    )
+                )
                 for _, cell, value in mmf:
                     samples = sample_by_cell_id.get(cell)
                     if samples:
@@ -698,13 +704,13 @@ class Project(ProjectContainer):
 
     def summarise_expression(self):
         """Produce the Summarised Expression Table for the dataset.
-        
+
         This method parses the EBI "Normalised Expression Matrix" to
         compute, for each gene in each cluster for each sample, the
         average expression of that gene in that cluster, and the
         "extent of expression" (the proportion of cells of that
         cluster in which the gene is expressed).
-        
+
         :return: a :class:`pandas.DataFrame` object
         """
 
@@ -729,14 +735,20 @@ class Project(ProjectContainer):
 
         for source in self.sources:
             with source.data.get_expression_matrix(raw=False) as mmf:
-                mmf.set_progress_callback(lambda p: logging.info(f"Reading expression table: {p}% complete..."))
+                mmf.set_progress_callback(
+                    lambda p: logging.info(
+                        f"Reading expression table: {p}% complete..."
+                    )
+                )
                 for fbgn, cell, value in mmf:
 
                     if cell not in clusters_by_cell_id:
                         continue
 
                     for cluster in clusters_by_cell_id[cell]:
-                        cluster.expression[fbgn] = cluster.expression.get(fbgn, 0) + value
+                        cluster.expression[fbgn] = (
+                            cluster.expression.get(fbgn, 0) + value
+                        )
                         cluster.presence[fbgn] = cluster.presence.get(fbgn, 0) + 1
 
         logging.info("Processing complete.")
@@ -748,9 +760,12 @@ class Project(ProjectContainer):
         table = None
         for result in results:
             for cluster in result.clusters:
-                d = pandas.DataFrame(data={'expression': pandas.Series(data=cluster.expression),
-                                           'presence': pandas.Series(data=cluster.presence)
-                                           })
+                d = pandas.DataFrame(
+                    data={
+                        'expression': pandas.Series(data=cluster.expression),
+                        'presence': pandas.Series(data=cluster.presence),
+                    }
+                )
                 # We compute mean expression for each gene...
                 d['mean_expr'] = d['expression'] / d['presence']
                 # and 'extent of expression'
@@ -819,7 +834,7 @@ class Biosample(DatasetBase):
     @property
     def project(self):
         """The project this sample belongs to (LC3).
-        
+
         :return: a :class:`ProjectContainer` object
         """
 
@@ -828,10 +843,10 @@ class Biosample(DatasetBase):
     @property
     def top_project(self):
         """The top-level this sample belongs to.
-        
+
         If the dataset does not contain any subproject, then this
         property returns the same value as :attr:`project`.
-        
+
         :return: a :class:`Project` object
         """
 
@@ -862,7 +877,7 @@ class Biosample(DatasetBase):
     @property
     def anatomical_part(self):
         """The organ or tissue the sample comes from.
-        
+
         This is a term from the Drosophila Anatomy Ontology (FBbt).
         """
 
@@ -871,7 +886,7 @@ class Biosample(DatasetBase):
     @property
     def developmental_stage(self):
         """The stage at which the sample has been collected.
-        
+
         This is a term from the Drosophila Developmental Ontology
         (FBdv).
         """
@@ -881,7 +896,7 @@ class Biosample(DatasetBase):
     @property
     def sex(self):
         """The sex of the individuals that provided the sample.
-        
+
         Can either be `female`, `male`, or None if either the sex is
         unknown or the sample comes from a mix of both female and
         male individuals.
@@ -892,7 +907,7 @@ class Biosample(DatasetBase):
     @property
     def entities(self):
         """The list of experimental entities involved.
-        
+
         This is a list of tuple, where each tuple contains the
         FlyBase identifier for the experimental entity (LC12a) and
         a value indicating the type of entity (LC12b).
@@ -903,7 +918,7 @@ class Biosample(DatasetBase):
     @property
     def assay(self):
         """The assay performed on the sample.
-        
+
         :return: a :class:`Assay` object
         """
 
@@ -912,7 +927,7 @@ class Biosample(DatasetBase):
     @property
     def subset(self):
         """The cells that make up the sample.
-        
+
         This property returns a filtered view of the EBI's original
         "Experiment Design Table", containing only the cells that
         belong to the current sample.
@@ -925,7 +940,7 @@ class Biosample(DatasetBase):
     @property
     def source(self):
         """The source datasets with the data for this sample.
-        
+
         :return: a list of :class:`SourceDataset` object
         """
 
@@ -935,13 +950,13 @@ class Biosample(DatasetBase):
 
     def exclude_cell_type(self, cell_type):
         """Indicate whether a cell type should be excluded.
-        
+
         This method takes a single cell type (as a FBbt term) and
         indicates whether, according to curators' instructions
         (either defined at the level of the current sample or at any
         higher level), that cell type should be excluded from any
         further analysis.
-        
+
         :return: True if the cell type shall be excluded
         """
 
@@ -959,11 +974,15 @@ class Biosample(DatasetBase):
         if self._conditions:
             for i in range(len(self._conditions)):
                 if isinstance(self._selectors[i], list):
-                    subset = subset.loc[subset[self._conditions[i]].isin(self._selectors[i])]
+                    subset = subset.loc[
+                        subset[self._conditions[i]].isin(self._selectors[i])
+                    ]
                 elif self._selectors[i] == '*':
                     pass
                 else:
-                    subset = subset.loc[subset[self._conditions[i]] == self._selectors[i]]
+                    subset = subset.loc[
+                        subset[self._conditions[i]] == self._selectors[i]
+                    ]
 
         return subset
 
@@ -971,7 +990,9 @@ class Biosample(DatasetBase):
         if self._source_id is None:
             return self.top_project.sources[0]
         else:
-            return [s for s in self.top_project.sources if s.accession == self._source_id][0]
+            return [
+                s for s in self.top_project.sources if s.accession == self._source_id
+            ][0]
 
 
 class Assay(DatasetBase):
@@ -1018,7 +1039,7 @@ class Assay(DatasetBase):
     @property
     def technical_reference(self):
         """The assay that is a technical reference to this one (LC14e).
-        
+
         :return: a :class:`Assay` object
         """
 
@@ -1027,7 +1048,7 @@ class Assay(DatasetBase):
     @property
     def biological_reference(self):
         """The assay that is a biological reference to this one (LC14f).
-        
+
         :return: a :class:`Assay` object
         """
 
@@ -1036,7 +1057,7 @@ class Assay(DatasetBase):
     @property
     def sample(self):
         """The sample from which the assay is derived (LC14a).
-        
+
         :return: a :class:`Biosample` object
         """
 
@@ -1047,7 +1068,11 @@ class Assay(DatasetBase):
             return reference
 
         symbol = self.sample.project.top_project.symbol + '_' + reference
-        samples = [s for s in self.sample.project.top_project.get_all_samples() if s.symbol == symbol]
+        samples = [
+            s
+            for s in self.sample.project.top_project.get_all_samples()
+            if s.symbol == symbol
+        ]
         if len(samples) == 1:
             return samples[0].assay.symbol
         elif len(samples) == 0:
@@ -1077,7 +1102,11 @@ class Result(DatasetBase):
             else:
                 symbol = project.symbol + '_' + symbol
             if title is None:
-                title = "Clustering analysis of " + project.title[0].lower() + project.title[1:]
+                title = (
+                    "Clustering analysis of "
+                    + project.title[0].lower()
+                    + project.title[1:]
+                )
 
         self._project = project
         self._symbol = symbol
@@ -1098,12 +1127,12 @@ class Result(DatasetBase):
     @property
     def assay(self):
         """The assay from which this result is derived (LC14b).
-        
+
         This property returns the first assay from which the current
         analysis is derived. Note that an analysis may derive from
         several assays. The :attr:`assays` property returns all
         those assays and its use should be preferred.
-        
+
         :return: a :class:`Assay` object
         """
 
@@ -1112,7 +1141,7 @@ class Result(DatasetBase):
     @property
     def assays(self):
         """The assays from which this result is derived (LC14b).
-        
+
         :return: a list of :class:`Assay` objects
         """
 
@@ -1121,7 +1150,7 @@ class Result(DatasetBase):
     @property
     def project(self):
         """The project this analysis belongs to (LC3).
-        
+
         :return: a :class:`ProjectContainer` object
         """
 
@@ -1151,7 +1180,7 @@ class Result(DatasetBase):
     @property
     def clusters(self):
         """The clusters identified in this analysis.
-        
+
         :return: a list of :class:`Cluster` objects
         """
 
@@ -1161,11 +1190,11 @@ class Result(DatasetBase):
 
     def get_sex(self):
         """Get the sex associated with this analysis.
-        
+
         This method returns the sex common to all samples from which
         this analysis is derived, if any. If the analysis is derived
         from samples of different sexes, None is returned.
-        
+
         :return: `female`, `male`, or None
         """
 
@@ -1192,11 +1221,17 @@ class Result(DatasetBase):
             if not sample.source.has_cell_types:
                 continue
 
-            for cell_type in sample.subset[sample.source.cell_type_column].dropna().unique():
+            for cell_type in (
+                sample.subset[sample.source.cell_type_column].dropna().unique()
+            ):
                 if sample.exclude_cell_type(cell_type):
                     continue
 
-                n = len(sample.subset.loc[sample.subset[sample.source.cell_type_column] == cell_type])
+                n = len(
+                    sample.subset.loc[
+                        sample.subset[sample.source.cell_type_column] == cell_type
+                    ]
+                )
                 if cell_type in cell_types:
                     cell_types[cell_type][0] += n
                 else:
@@ -1241,7 +1276,7 @@ class Cluster(DatasetBase):
     @property
     def result(self):
         """The clustering analysis that identified this cluster.
-        
+
         :return: a :class:`Result` object
         """
 
@@ -1262,7 +1297,7 @@ class Cluster(DatasetBase):
     @property
     def cell_type(self):
         """The type of cells in this cluster.
-        
+
         This is a FBbt term.
         """
 
@@ -1274,8 +1309,8 @@ class Cluster(DatasetBase):
         rules = [
             (' ', '_'),
             ('/', '_'),
-            (' ', '_')
-            ]
+            (' ', '_'),
+        ]
         for rule in rules:
             sct = sct.replace(rule[0], rule[1])
         return f'{self.result.symbol}_{sct}s'
@@ -1283,11 +1318,11 @@ class Cluster(DatasetBase):
     @property
     def simplified_cell_type(self):
         """A simplified version of the cell type.
-        
+
         The simplified cell type is a version of the cell type that
         is intended to be used in places where there is limited space
         and full cell type names could be too long.
-        
+
         The simplified cell type is either specified directly by the
         curators, or derived from the application of a few
         simplifying rules.
@@ -1299,8 +1334,8 @@ class Cluster(DatasetBase):
                 ('embryonic/larval ', ''),
                 ('embryonic ', ''),
                 ('larval ', ''),
-                ('adult ', '')
-                ]
+                ('adult ', ''),
+            ]
             for rule in rules:
                 sct = sct.replace(rule[0], rule[1])
             self._simple_ct = sct
@@ -1339,7 +1374,7 @@ class ProformaWriter(object):
 
     def __init__(self, builder):
         """Create a new instance.
-        
+
         :param builder: a :class:`ProformaGeneratorBuilder` object
         """
 
@@ -1348,7 +1383,7 @@ class ProformaWriter(object):
 
     def write(self, project):
         """Generate a proforma for the specified project.
-        
+
         :param project: a :class:`Project` object
         """
 
@@ -1391,7 +1426,9 @@ class ProformaWriter(object):
         g.write_field('P2', reference.journal)
         g.write_field('P19')
         g.write_separator()
-        self._generator = self._builder.get_generator(proforma_type=ProformaType.DATASET)
+        self._generator = self._builder.get_generator(
+            proforma_type=ProformaType.DATASET
+        )
 
     def _write_common_header(self, dataset):
         self._generator.write_header()
@@ -1426,7 +1463,10 @@ class ProformaWriter(object):
             self._write_field('LC6f', dataset.count_label)
 
     def _write_metadata(self, project):
-        self._write_field('LC7a', "The EMBL-EBI's Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.")
+        self._write_field(
+            'LC7a',
+            "The EMBL-EBI's Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.",
+        )
         for source in project.sources:
             self._write_field('LC99a', source.accession)
             self._write_field('LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets')
@@ -1523,7 +1563,7 @@ class CurationContext(object):
 
     def __init__(self, config, store, no_exclude, min_cluster_size, with_reads):
         """Create a new instance.
-        
+
         :param config: the main configuration object
         :param store: the dataset local file store
         :param no_exclude: do not exclude any cell type if True
@@ -1541,7 +1581,7 @@ class CurationContext(object):
 
     def get_proforma_builder(self, output):
         """Get a proforma writer set up to write to the specified file.
-        
+
         :param output: a file-like object
         :return: a :class:`ProformaGeneratorBuilder` object
         """
@@ -1550,7 +1590,7 @@ class CurationContext(object):
 
     def source_dataset_from_specfile(self, specfile):
         """Build a source dataset object from a JSON specification.
-        
+
         :param specfile: the name of a file containing a JSON or YAML
             description of the source dataset
         :return: a :class:`SourceDataset` object
@@ -1563,7 +1603,7 @@ class CurationContext(object):
 
     def dataset_from_specfile(self, specfile, with_reads=True):
         """Build a FlyBase dataset object from a JSON specification.
-        
+
         :param specfile: the name of a file containing a JSON or YAML
             description of the dataset
         :param with_reads: if True (the default), automatically
@@ -1588,7 +1628,7 @@ class CurationContext(object):
 
     def load_spec_file(self, filename):
         """Load a JSON or YAML specification file.
-        
+
         :param filename: the name of the specification file
         :return: a dictionary representing the specification
         """
@@ -1604,11 +1644,11 @@ class CurationContext(object):
 
     def expand_defaults(self, spec, parent={}):
         """Propagate default values in a JSON description.
-        
+
         If the JSON description of a project contains a dictionary
         named `defaults`, the values of that dictionary are
         propagated to all samples in the project (and subprojects).
-        
+
         :param spec: the JSON dictionary describing the project
         :param parent: supplementary default values to apply, in
             addition to those that may be defined in the project
@@ -1632,19 +1672,32 @@ class CurationContext(object):
 
 
 @click.group(invoke_without_command=True)
-@click.option('--no-excluded-cell-types', '-n', 'no_exclude',
-              is_flag=True, default=False,
-              help="Do not exclude any cell types.")
-@click.option('--min-cluster-size', '-m', default=0,
-              help="Exclude cluster with less cells than specified.")
-@click.option('--with-reads/--without-reads', default=True,
-              help="Extract number of reads per biosample.")
+@click.option(
+    '--no-excluded-cell-types',
+    '-n',
+    'no_exclude',
+    is_flag=True,
+    default=False,
+    help="Do not exclude any cell types.",
+)
+@click.option(
+    '--min-cluster-size',
+    '-m',
+    default=0,
+    help="Exclude cluster with less cells than specified.",
+)
+@click.option(
+    '--with-reads/--without-reads',
+    default=True,
+    help="Extract number of reads per biosample.",
+)
 @click.pass_context
 def curate(ctx, no_exclude, min_cluster_size, with_reads):
     """Access the curation commands."""
 
-    ctx.obj = CurationContext(ctx.obj.config, ctx.obj.raw_store, no_exclude,
-                              min_cluster_size, with_reads)
+    ctx.obj = CurationContext(
+        ctx.obj.config, ctx.obj.raw_store, no_exclude, min_cluster_size, with_reads
+    )
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-curate> ")
         shell.cmdloop()
@@ -1652,12 +1705,17 @@ def curate(ctx, no_exclude, min_cluster_size, with_reads):
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
 @click.pass_obj
 def extract(ctx, specfile, output):
     """Extract curation data from a dataset.
-    
+
     This command is mostly intended for debugging. It reads a dataset
     description file and lists all the samples from the project,
     along with the clusters found in each sample (with the number of
@@ -1678,14 +1736,24 @@ def extract(ctx, specfile, output):
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
-@click.option('--header', '-H', is_flag=True, default=False,
-              help="Writes an uncommented header line.")
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
+@click.option(
+    '--header',
+    '-H',
+    is_flag=True,
+    default=False,
+    help="Writes an uncommented header line.",
+)
 @click.pass_obj
 def sumexpr(ctx, specfile, output, header):
     """Summarize expression data from a dataset.
-    
+
     This command produces the Summarised Expression Table from a
     dataset description file. The table is written in the format
     expected by Harvard developers, ready to be uploaded to the
@@ -1704,17 +1772,22 @@ def sumexpr(ctx, specfile, output, header):
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
 @click.pass_obj
 def proforma(ctx, specfile, output):
     """Generate a proforma for a dataset.
-    
+
     This command produces a dataset proforma from a dataset
     description file. Depending on the extent of the description,
     the generated proforma may be directly loadable or may require
     further edits by the curators.
-    
+
     In any case, the produced proforma should always be checked by
     Peeves before being submitted for loading.
     """
@@ -1730,7 +1803,7 @@ def proforma(ctx, specfile, output):
 @click.pass_obj
 def fixscea(ctx, specfile):
     """Generate correction files for the SCEA.
-    
+
     This command takes a source dataset description file and produces
     the correction files needed by the EBI curators, if such
     corrections have been described as necessary.
@@ -1762,16 +1835,28 @@ def fixscea(ctx, specfile):
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
-@click.option('--format', '-f', 'fmt', type=click.Choice(['json', 'yaml']),
-              default='json', help="Write output in the specified format.")
-@click.option('--expand', '-e', is_flag=True, default=False,
-              help="Expand default values.")
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Write to the specified file instead of standard output.")
+@click.option(
+    '--format',
+    '-f',
+    'fmt',
+    type=click.Choice(['json', 'yaml']),
+    default='json',
+    help="Write output in the specified format.",
+)
+@click.option(
+    '--expand', '-e', is_flag=True, default=False, help="Expand default values."
+)
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
 @click.pass_obj
 def convert(ctx, specfile, fmt, expand, output):
     """Convert a specification file from one format to another.
-    
+
     This command is mostly intended for debugging. It takes a JSON or
     YAML file describing a dataset, optionally expands any default
     values in it, and writes the specification into a new JSON or

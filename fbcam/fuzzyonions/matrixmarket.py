@@ -53,7 +53,7 @@ class MatrixMarketFile(object):
 
     def set_progress_callback(self, callback):
         """Sets a callback function to monitor progress.
-        
+
         Sets a function that will be called for each percent of
         the table read. The function should take a single value
         that will be the percentage of progress.
@@ -92,7 +92,7 @@ class MatrixMarketFile(object):
 
     def next(self):
         """Gets the next line from the table.
-        
+
         This method returns a tuple containing:
         - the row index,
         - the column index,

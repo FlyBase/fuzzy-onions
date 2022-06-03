@@ -24,7 +24,7 @@ from enum import Enum
 
 
 class ProformaType(Enum):
-    PUB_MINI = 0,
+    PUB_MINI = (0,)
     DATASET = 1
 
 
@@ -32,8 +32,8 @@ class ProformaGeneratorBuilder(object):
 
     _PROFORMAE = {
         ProformaType.PUB_MINI: ('pub_mini', 'PUBLICATION'),
-        ProformaType.DATASET: ('dataset_master', 'DATASET/COLLECTION')
-        }
+        ProformaType.DATASET: ('dataset_master', 'DATASET/COLLECTION'),
+    }
 
     def __init__(self, directory, output):
         self._directory = directory
@@ -55,7 +55,6 @@ class ProformaGeneratorBuilder(object):
 
 
 class ProformaGenerator(object):
-
     def __init__(self, source, name, output):
         self._source = source
         self._name = name
@@ -88,10 +87,14 @@ class ProformaGenerator(object):
         self._fp.write('!\n')
 
     def write_separator(self):
-        self._fp.write('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
+        self._fp.write(
+            '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
+        )
 
     def write_terminator(self):
-        self._fp.write('!!!!!!!!!!!!!!!!!! END OF RECORD FOR THIS PUBLICATION !!!!!!!!!!!!!!!!!!!!\n')
+        self._fp.write(
+            '!!!!!!!!!!!!!!!!!! END OF RECORD FOR THIS PUBLICATION !!!!!!!!!!!!!!!!!!!!\n'
+        )
 
     def write_field(self, fid, value=None):
         if self._is_empty(value):

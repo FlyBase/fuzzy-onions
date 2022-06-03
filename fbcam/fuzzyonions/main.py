@@ -46,7 +46,6 @@ This program is released under the terms of the 1-clause BSD licence.
 
 
 class FzoContext(object):
-
     def __init__(self, config_file):
         self._config_file = config_file
         self._config = ConfigParser()
@@ -78,7 +77,7 @@ class FzoContext(object):
             with open(self._config_file, 'w') as f:
                 self._config.write(f)
         else:
-            self._has_config = len(self._config.read(self._config_file));
+            self._has_config = len(self._config.read(self._config_file))
 
     @property
     def raw_store(self):
@@ -103,18 +102,20 @@ class FzoContext(object):
             self._database.close()
 
 
-@shell(context_settings={'help_option_names': ['-h', '--help']},
-       prompt="fzo> ")
+@shell(context_settings={'help_option_names': ['-h', '--help']}, prompt="fzo> ")
 @click.version_option(version=__version__, message=prog_notice)
-@click.option('--config', '-c', type=click.Path(exists=False),
-              default='{}/config'.format(click.get_app_dir('fuzzyonions')),
-              help="Path to an alternative configuration file.")
+@click.option(
+    '--config',
+    '-c',
+    type=click.Path(exists=False),
+    default='{}/config'.format(click.get_app_dir('fuzzyonions')),
+    help="Path to an alternative configuration file.",
+)
 @click.pass_context
 def main(ctx, config):
     """Helper scripts for the FlyBase scRNAseq project."""
 
-    logging.basicConfig(format="fzo: %(module)s: %(message)s",
-                        level=logging.INFO)
+    logging.basicConfig(format="fzo: %(module)s: %(message)s", level=logging.INFO)
 
     if not '/' in config and not exists(config):
         config = '{}/{}'.format(click.get_app_dir('fuzzyonions'), config)
@@ -150,18 +151,18 @@ def conf(ctx):
         store_dir = f'{home}/scRNAseq/raw'
         proformae_dir = f'{home}/SVN_folders/proformae'
 
-        store_dir = click.termui.prompt("Raw data directory",
-                                        default=store_dir)
-        proformae_dir = click.termui.prompt("Proformae directory",
-                                            default=proformae_dir)
+        store_dir = click.termui.prompt("Raw data directory", default=store_dir)
+        proformae_dir = click.termui.prompt(
+            "Proformae directory", default=proformae_dir
+        )
 
         defaults = {
             'store': {'production': store_dir},
             'curation': {
                 'proformae': proformae_dir,
-                'trackfile': '{}/track.json'.format(click.get_app_dir('fuzzyonions'))
-                }
-            }
+                'trackfile': '{}/track.json'.format(click.get_app_dir('fuzzyonions')),
+            },
+        }
         ctx.reset(options=defaults)
 
 

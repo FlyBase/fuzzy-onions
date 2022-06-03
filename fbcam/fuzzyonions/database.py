@@ -33,16 +33,14 @@ class DatabaseHelper(object):
     @property
     def connection(self):
         if self._conn is None:
-            host = self._config.get('chado', 'host',
-                                    fallback='chado.flybase.org')
+            host = self._config.get('chado', 'host', fallback='chado.flybase.org')
             name = self._config.get('chado', 'database', fallback='flybase')
             user = self._config.get('chado', 'user', fallback='flybase')
             pswd = self._config.get('chado', 'password', fallback=None)
             name = self._config.get('chado', 'database', fallback='latest')
             if name == 'latest':
                 name = self._get_latest_database(host, user, pswd)
-            self._conn = connect(host=host, database=name, user=user,
-                                 password=pswd)
+            self._conn = connect(host=host, database=name, user=user, password=pswd)
         return self._conn
 
     @property
@@ -66,9 +64,9 @@ class DatabaseHelper(object):
                         AND  datname LIKE 'fb_20%'
                     ORDER BY datname DESC
                     LIMIT 1;'''
-        with connect(host=host, database='postgres', user=user,
-                     password=password) as tmp:
+        with connect(
+            host=host, database='postgres', user=user, password=password
+        ) as tmp:
             with tmp.cursor() as cursor:
                 cursor.execute(query)
                 return cursor.fetchone()[0]
-

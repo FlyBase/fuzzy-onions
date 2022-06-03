@@ -100,8 +100,13 @@ def columns(ctx):
 
 @explorer.command()
 @click.argument('column')
-@click.option('--count-cells', '-c', is_flag=True, default=False,
-              help="Print the number of cells for each value.")
+@click.option(
+    '--count-cells',
+    '-c',
+    is_flag=True,
+    default=False,
+    help="Print the number of cells for each value.",
+)
 @click.pass_obj
 def values(ctx, column, count_cells):
     """Print unique values in a column."""
@@ -122,8 +127,9 @@ def values(ctx, column, count_cells):
 
 @explorer.command()
 @click.argument('selectors', nargs=-1)
-@click.option('--clear', '-c', is_flag=True, default=False,
-              help="Reset previous selection.")
+@click.option(
+    '--clear', '-c', is_flag=True, default=False, help="Reset previous selection."
+)
 @click.pass_obj
 def select(ctx, selectors, clear):
     """Select a subset of the experiment design."""

@@ -38,8 +38,9 @@ class DiscoverContext(object):
 
     @property
     def flybase_table_file(self):
-        return self._config.get('discovery', 'flybase_papers_list',
-                                fallback='flybase-papers.tsv')
+        return self._config.get(
+            'discovery', 'flybase_papers_list', fallback='flybase-papers.tsv'
+        )
 
     @property
     def scea_dataset_file(self):
@@ -177,8 +178,7 @@ class TextMiner(object):
 
     def open(self):
         if not self._ready:
-            subprocess.run(['scp', self._script,
-                            f'{self._hostname}:grep-svm.sh'])
+            subprocess.run(['scp', self._script, f'{self._hostname}:grep-svm.sh'])
             self._ready = True
 
     def close(self):
@@ -189,9 +189,13 @@ class TextMiner(object):
     def grep(self, regex, references):
         lines = [f'{a} {b}' for a, b in references]
         command = f"bash ./grep-svm.sh {self._directory} '{regex}'"
-        ssh = subprocess.Popen(['ssh', self._hostname, command],
-                               shell=False, text=True,
-                               stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        ssh = subprocess.Popen(
+            ['ssh', self._hostname, command],
+            shell=False,
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
         output, _ = ssh.communicate('\n'.join(lines))
 
         res = {}
@@ -217,12 +221,22 @@ def discover(ctx):
 
 
 @discover.command()
-@click.option('--filename', '-f', default=None, metavar='FILENAME',
-              help="""Use the given table file instead of the one
-                      specified in the configuration.""")
-@click.option('--output', '-o', default=None, metavar='FILENAME',
-              help="""Write the updated table to the specified file.
-                      The default is to write to the original file.""")
+@click.option(
+    '--filename',
+    '-f',
+    default=None,
+    metavar='FILENAME',
+    help="""Use the given table file instead of the one
+                      specified in the configuration.""",
+)
+@click.option(
+    '--output',
+    '-o',
+    default=None,
+    metavar='FILENAME',
+    help="""Write the updated table to the specified file.
+            The default is to write to the original file.""",
+)
 @click.pass_obj
 def findnew(obj, filename, output):
     """Find new FlyBase references that may be about scRNAseq."""
@@ -231,9 +245,19 @@ def findnew(obj, filename, output):
         filename = obj.flybase_table_file
 
     if not os.path.exists(filename):
-        table = DataFrame(columns=['FBrf', 'PMID', 'Citation', 'Accessions',
-                                   'Mentions', 'Confirmed', 'Organ/tissue',
-                                   'Comments'], dtype=str)
+        table = DataFrame(
+            columns=[
+                'FBrf',
+                'PMID',
+                'Citation',
+                'Accessions',
+                'Mentions',
+                'Confirmed',
+                'Organ/tissue',
+                'Comments',
+            ],
+            dtype=str,
+        )
     else:
         table = read_csv(filename, sep='\t', dtype=str)
 
@@ -243,15 +267,21 @@ def findnew(obj, filename, output):
     click.echo("Fetching additional data...")
     newrows = []
     with click.progressbar(fbrfs) as bar:
-        for fbrf, in bar:
+        for (fbrf,) in bar:
             if fbrf in table['FBrf'].values:
                 continue
 
             pmid = obj.get_pmid_for_fbrf(fbrf)
             accessions = obj.get_dataset_accessions_for_fbrf(fbrf)
             citation = obj.get_citation_for_fbrf(fbrf)
-            newrows.append({'FBrf': fbrf, 'PMID': pmid, 'Citation': citation,
-                            'Accessions': accessions})
+            newrows.append(
+                {
+                    'FBrf': fbrf,
+                    'PMID': pmid,
+                    'Citation': citation,
+                    'Accessions': accessions,
+                }
+            )
 
     click.echo(f"New dataset-flagged references: {len(newrows)}")
     if len(newrows) == 0:
@@ -272,8 +302,13 @@ def findnew(obj, filename, output):
 
 
 @discover.command()
-@click.option('--output', '-o', type=click.File('w'), default='-',
-              help="Send output to the specified file.")
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Send output to the specified file.",
+)
 @click.pass_obj
 def toscea(obj, output):
     """Make a list of datasets that are new to the SCEA."""
@@ -283,7 +318,8 @@ def toscea(obj, output):
     unknown_pmids = obj.filter_out_known_datasets(subset['PMID'].values)
 
     subset = table[table['PMID'].isin(unknown_pmids)]
-    subset = table.loc[table['PMID'].isin(unknown_pmids),
-                       ['FBrf', 'PMID', 'Accessions', 'Citation',
-                        'Organ/tissue', 'Comments']]
+    subset = table.loc[
+        table['PMID'].isin(unknown_pmids),
+        ['FBrf', 'PMID', 'Accessions', 'Citation', 'Organ/tissue', 'Comments'],
+    ]
     subset.to_csv(output, sep='\t', index=False)
