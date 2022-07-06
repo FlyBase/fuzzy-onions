@@ -84,41 +84,23 @@ class SourceDataset(object):
             return self._simple_ct.get(cell_type, cell_type)
         return cell_type
 
-    def get_corrections(self, target):
-        """Get all correction sets applicable to the specified target."""
-
-        return [c for c in self._corrections if c.valid_for(target)]
-
-    def apply_corrections(self, only_new=False, target='internal'):
-        """Apply correction sets for the specified target.
-
-        :param only_new: if True, only apply corrections that do not
-            modify existing columns
-        :param: target: intended target for the corrections
-        :return: the number of applied correction sets
-        """
+    def apply_corrections(self):
+        """Apply any defined correction sets."""
 
         expd = self.data.experiment_design
-        n = 0
-        for corrset in self.get_corrections(target):
+        for corrset in self._corrections:
             dest = corrset.destination
             if dest is not None:
                 # We are adding a new column
                 expd[corrset.destination] = pandas.Series(dtype='string')
             else:
                 # We modify an existing column
-                if only_new:
-                    continue
                 dest = corrset.source
 
             for old, new, _ in corrset.values:
                 if len(new) == 0:
                     new = pandas.NA
                 expd.loc[expd[corrset.source] == old, dest] = new
-
-            n += 1
-
-        return n
 
     def feed_data(self, store):
         """Inject raw data from a store.
@@ -134,7 +116,6 @@ class CorrectionSet(object):
     """A set of corrections to apply to the ExperimentDesign table."""
 
     def __init__(self, data):
-        self._target = data.get('target', 'both')
         self._source = data['source']
         self._destination = data.get('destination', None)
         self._values = data['values']
@@ -166,11 +147,6 @@ class CorrectionSet(object):
         """
 
         return self._values
-
-    def valid_for(self, target):
-        """Indicate whether the set is applicable to a target."""
-
-        return self._target in [target, 'both']
 
 
 class FlybaseReference(object):
@@ -1796,41 +1772,6 @@ def proforma(ctx, specfile, output):
     builder = ctx.get_proforma_builder(output)
     writer = ProformaWriter(builder)
     writer.write(ds)
-
-
-@curate.command()
-@click.argument('specfile', type=click.Path(exists=True))
-@click.pass_obj
-def fixscea(ctx, specfile):
-    """Generate correction files for the SCEA.
-
-    This command takes a source dataset description file and produces
-    the correction files needed by the EBI curators, if such
-    corrections have been described as necessary.
-    """
-
-    ds = ctx.source_dataset_from_specfile(specfile)
-    new_expd_file = 'experiment-design.with-fbids.tsv'
-    ct_file = 'celltypes-fbterms.tsv'
-
-    if ds.apply_corrections(only_new=True, target='scea') > 0:
-        ds.data.experiment_design.to_csv(new_expd_file, sep='\t')
-
-    ct_column = ds.cell_type_column
-    if ct_column is None:
-        ct_column = ds.input_cell_type_column
-        if ct_column is None:
-            logging.warn("No cell type informations to correct")
-            return
-
-    for corrset in ds.get_corrections('scea'):
-        if corrset.source != ct_column:
-            continue
-
-        with open(ct_file, 'w') as f:
-            f.write('Original term\tProposed new term\tComment\n')
-            for old, new, comment in corrset.values:
-                f.write(f'{old}\t{new}\t{comment}\n')
 
 
 @curate.command()
