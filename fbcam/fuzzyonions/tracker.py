@@ -89,15 +89,6 @@ class FlyBaseEvaluation(JsonEnum):
     HOLD = 3
 
 
-class CorrectionStatus(JsonEnum):
-    """Status of a correction set."""
-
-    UNKNOWN = 0
-    NOT_NEEDED = 1
-    TODO = 2
-    DONE = 3
-
-
 class CellTypeAvailability(JsonEnum):
     """Status of cell type annotations."""
 
@@ -275,7 +266,6 @@ class FlyBaseData(object):
         self._name = None
         self._status = FlyBaseRecordStatus.UNKNOWN
         self._sumexpr = FlyBaseRecordStatus.UNKNOWN
-        self._corrections = CorrectionData()
 
     @property
     def is_empty(self):
@@ -343,10 +333,6 @@ class FlyBaseData(object):
     def sumexpr_status(self, value):
         self._sumexpr = value
 
-    @property
-    def corrections(self):
-        return self._corrections
-
     def get_status_string(self):
         d = str(self.decision)[0].upper()
         s = str(self.record_status)
@@ -366,8 +352,6 @@ class FlyBaseData(object):
                 d['record']['name'] = self._name
         if self._sumexpr != FlyBaseRecordStatus.UNKNOWN:
             d['sumexpr'] = {'status': str(self._sumexpr)}
-        if self.corrections.status != CorrectionStatus.UNKNOWN:
-            d['corrections'] = self.corrections.to_dict()
         return d
 
     @classmethod
@@ -393,61 +377,6 @@ class FlyBaseData(object):
                 data['sumexpr'].get('status', 'unknown')
             )
 
-        if 'corrections' in data:
-            new._corrections = CorrectionData.from_dict(data['corrections'])
-
-        return new
-
-
-class CorrectionData:
-    """Represents the informations about a correction set."""
-
-    def __init__(self):
-        self._status = CorrectionStatus.UNKNOWN
-        self._submitted = None
-
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value):
-        self._status = value
-
-    @property
-    def submitted(self):
-        return self._submitted
-
-    def set_submitted(self, date=datetime.today()):
-        self._status = CorrectionStatus.DONE
-        self._submitted = date
-
-    def to_string(self):
-        if self.status == CorrectionStatus.NOT_NEEDED:
-            return "none needed"
-        elif self.status == CorrectionStatus.TODO:
-            return "todo"
-        elif self.status == CorrectionStatus.DONE:
-            dt = self.submitted
-            if dt:
-                return f"submitted on {dt:%Y-%m-%d}"
-            else:
-                return "unsubmitted"
-        else:
-            return "unknown"
-
-    def to_dict(self):
-        d = {'status': str(self._status)}
-        if self._submitted:
-            d['submitted'] = self._submitted.strftime('%Y-%m-%d')
-        return d
-
-    @classmethod
-    def from_dict(cls, data):
-        new = cls()
-        new._status = CorrectionStatus.from_str(data.get('status', 'unknown'))
-        if 'submitted' in data:
-            new._submitted = datetime.strptime(data['submitted'], '%Y-%m-%d')
         return new
 
 
@@ -595,11 +524,9 @@ def list_tracked_datasets(
     """List tracked datasets."""
 
     if long:
-        print(
-            "Dataset ID       EBI Status       FlyBase Status   Cell Types                       Corrections"
-        )
+        print("Dataset ID       EBI Status       FlyBase Status   Cell Types")
     elif tab:
-        print("Dataset ID\tEBI Status\tFlyBase Status\tCell Types\tCorrections")
+        print("Dataset ID\tEBI Status\tFlyBase Status\tCell Types")
 
     for ds in ctx.tracker.datasets:
         if scea_status and ds.scea.status != scea_status:
@@ -616,11 +543,11 @@ def list_tracked_datasets(
 
         if long:
             print(
-                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string():32} {ds.flybase.corrections.to_string()}"
+                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string()}"
             )
         elif tab:
             print(
-                f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}\t{ds.flybase.corrections.to_string()}"
+                f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}"
             )
         else:
             print(ds.scea.identifier)
@@ -655,8 +582,6 @@ def show(ctx, dsid):
 
         if ds.cell_types.status == CellTypeAvailability.AVAILABLE:
             print(f"Summarised expression table: {ds.flybase.sumexpr_status}")
-
-    print(f"Corrections: {ds.flybase.corrections.to_string()}")
 
 
 @tracker.command()
@@ -710,18 +635,6 @@ def add(ctx, dsid):
 @click.option('--comment', help="Set the comment from the FlyBase curator.")
 @click.option('--reference', help="Set the associated FlyBase reference.")
 @click.option('--record', help="Set the name of the FlyBase record.")
-@click.option(
-    '--corrections',
-    type=click.Choice(CorrectionStatus.values()),
-    callback=CorrectionStatus.from_click,
-    help="Set the status of correction sets.",
-)
-@click.option(
-    '--set-correction-date',
-    'corr_date',
-    type=click.DateTime(),
-    help="Set the date when corrections were submitted.",
-)
 @click.pass_obj
 def update(
     ctx,
@@ -736,8 +649,6 @@ def update(
     comment,
     reference,
     record,
-    corrections,
-    corr_date,
 ):
     """Update informations about a dataset."""
 
@@ -770,11 +681,6 @@ def update(
         ds.flybase.reference = reference
     if record:
         ds.flybase.record_name = record
-
-    if corr_date:
-        ds.flybase.corrections.set_submitted(date=corr_date)
-    elif corrections:
-        ds.flybase.corrections.status = corrections
 
     if not ctx.in_tracker_shell:
         ctx.tracker.save()
