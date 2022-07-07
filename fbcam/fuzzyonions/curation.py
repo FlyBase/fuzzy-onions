@@ -751,7 +751,7 @@ class Project(ProjectContainer):
 
                 d = d.drop(columns=['expression', 'presence'])
                 if table is not None:
-                    table = table.append(d)
+                    table = pandas.concat([table, d])
                 else:
                     table = d
 
