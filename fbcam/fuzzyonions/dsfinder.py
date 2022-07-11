@@ -25,7 +25,7 @@ from shutil import copyfile
 
 import click
 from click_shell.core import make_click_shell
-from pandas import read_csv, DataFrame
+from pandas import concat, read_csv, DataFrame
 
 
 class DiscoverContext(object):
@@ -287,7 +287,7 @@ def findnew(obj, filename, output):
     if len(newrows) == 0:
         return
 
-    table = table.append(newrows)
+    table = concat([table, newrows])
 
     click.echo("Querying the fulltext archive...")
     queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
