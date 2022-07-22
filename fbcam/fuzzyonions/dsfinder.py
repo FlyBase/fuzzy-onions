@@ -287,7 +287,7 @@ def findnew(obj, filename, output):
     if len(newrows) == 0:
         return
 
-    table = concat([table, newrows])
+    table = concat([table, DataFrame(data=newrows)])
 
     click.echo("Querying the fulltext archive...")
     queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
