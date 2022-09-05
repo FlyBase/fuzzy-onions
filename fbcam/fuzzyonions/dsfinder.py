@@ -196,7 +196,7 @@ class TextMiner(object):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        output, _ = ssh.communicate('\n'.join(lines))
+        output, _ = ssh.communicate('\n'.join(lines) + '\n')
 
         res = {}
         for line in output.split('\n'):
