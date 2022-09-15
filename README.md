@@ -88,4 +88,4 @@ Here is a sample description file:
 
 Copying
 -------
-Fuzzy-Onions is distributed under the terms of the 1-clause BSD license.
+Fuzzy-Onions is distributed under the terms of the MIT license.
