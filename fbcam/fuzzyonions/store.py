@@ -36,7 +36,7 @@ class Store(object):
 
         ds = self._prod.get(dsid, download)
         if ds is None:
-            ds = self._staging(dsid, download)
+            ds = self._staging.get(dsid, download)
         return ds
 
     def update(self):
