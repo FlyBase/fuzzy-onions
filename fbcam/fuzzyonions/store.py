@@ -119,9 +119,22 @@ def update(ctx):
 
 
 @store.command()
-@click.option('--since', '-s', type=click.DateTime(), default=None)
+@click.option(
+    '--since',
+    '-s',
+    type=click.DateTime(),
+    default=None,
+    help="Ignore datasets older than the specified date.",
+)
+@click.option(
+    '--download',
+    '-b',
+    is_flag=True,
+    default=False,
+    help="Download the datasets to the local store.",
+)
 @click.pass_obj
-def findnew(ctx, since):
+def findnew(ctx, since, download):
     """Find new datasets on the remote store.
 
     This command checks whether new datasets have been made available
@@ -130,13 +143,32 @@ def findnew(ctx, since):
 
     experiments = ctx.raw_store._staging.get_experiments_list()
     known_ids = [d.id for d in ctx.raw_store.datasets]
+    downloaded = 0
+
     for experiment in experiments:
         accession = experiment['experimentAccession']
-        load_date = experiment['loadDate']
-
         if accession in known_ids:
             continue
-        if since is not None and datetime.strptime(load_date, '%d-%m-%Y') < since:
+
+        load_date = datetime.strptime(experiment['loadDate'], '%d-%m-%Y')
+        if since is not None and load_date < since:
             continue
 
-        print(f"{accession}\t{load_date}\t{experiment['experimentDescription']}")
+        print(f"{accession}\t{load_date:%F}\t{experiment['experimentDescription']}")
+        if download:
+            ds = ctx.raw_store.get(accession)
+            if ds:
+                downloaded += 1
+                ctx.tracker.add_dataset(accession, ds.staging)
+                tds = ctx.tracker.get_dataset(accession)
+
+                if (
+                    'inferred cell type - authors labels'
+                    in experiment['experimentalFactors']
+                    or 'inferred cell type - ontology labels'
+                    in experiment['experimentalFactors']
+                ):
+                    tds.cell_types.set_obtained(date=load_date)
+
+    if downloaded > 0:
+        ctx.tracker.save()
