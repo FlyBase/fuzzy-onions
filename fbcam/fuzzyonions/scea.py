@@ -10,6 +10,8 @@
 from enum import IntFlag
 import logging
 import os
+import json
+from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 
 import requests
@@ -87,9 +89,29 @@ class FileStore(object):
     def _refresh(self):
         self._datasets = {}
         for dsid in os.listdir(self._directory):
-            self._datasets[dsid] = Dataset(
-                os.path.join(self._directory, dsid), self._staging
-            )
+            fullpath = os.path.join(self._directory, dsid)
+            if os.path.isdir(fullpath):
+                self._datasets[dsid] = Dataset(
+                    os.path.join(self._directory, dsid), self._staging
+                )
+
+    def get_experiments_list(self, force_refresh=False):
+        expfile = os.path.join(self._directory, 'experiments.json')
+        mtime = None
+
+        if force_refresh or not os.path.exists(expfile):
+            refresh = True
+        else:
+            mtime = os.path.getmtime(expfile)
+            refresh = mtime + 86400 < datetime.now().timestamp()
+
+        if refresh:
+            if mtime is not None:
+                mtime = datetime.fromtimestamp().astimezone()
+            self._downloader.get_experiments_list(since=mtime)
+
+        with open(expfile, 'r') as fd:
+            return json.load(fd)
 
 
 class Dataset(object):
@@ -166,8 +188,8 @@ class Dataset(object):
 class Downloader(object):
     """Helper object to download data from the SCEA."""
 
-    BASE_URL = 'https://www.ebi.ac.uk/gxa/sc/experiment'
-    BASE_URL_DEV = 'https://wwwdev.ebi.ac.uk/gxa/sc/experiment'
+    BASE_URL = 'https://www.ebi.ac.uk/gxa/sc/'
+    BASE_URL_DEV = 'https://wwwdev.ebi.ac.uk/gxa/sc/'
     FILES = {
         DataType.EXPERIMENT_METADATA: ('experiment-metadata', True),
         DataType.EXPERIMENT_DESIGN: ('experiment-design', False),
@@ -218,8 +240,39 @@ class Downloader(object):
 
         return errors == 0
 
+    def get_experiments_list(self, since=None):
+        """Download the list of experiments, as a JSON file.
+
+        :param since: a DateTime object; only download the file if the
+            version on the server is more recent than the indicate date
+        :return: True if the download was successful (or there was no
+            newer version on the server), False otherwise
+        """
+
+        url = f'{self._baseurl}json/experiments'
+        dest = f'{self._outdir}/experiments.json'
+        headers = {}
+        if since is not None:
+            headers['If-Modified-Since'] = since.strftime('%a, %d %b %Y %H:%M:%S %Z')
+        try:
+            with requests.get(url, headers=headers) as response:
+                if response.status_code == 304:
+                    return True
+                data = [
+                    e
+                    for e in json.loads(response.content)['experiments']
+                    if e['species'] == 'Drosophila melanogaster'
+                ]
+                with open(dest, 'w') as fd:
+                    json.dump(data, fd, indent=2)
+        except requests.RequestException as e:
+            logging.info(f"Cannot download experiments list: {e}")
+            return False
+
+        return True
+
     def _check_dataset(self, dsid):
-        url = f'{self._baseurl}s/{dsid}/results'
+        url = f'{self._baseurl}experiments/{dsid}/results'
         try:
             with requests.head(url) as response:
                 return response.ok
@@ -229,7 +282,7 @@ class Downloader(object):
     def _download(self, dsid, file_type, is_zip=False):
         z = 'zip' if is_zip else ''
         ext = 'zip' if is_zip else 'tsv'
-        url = f'{self._baseurl}/{dsid}/download/{z}?fileType={file_type}'
+        url = f'{self._baseurl}experiment/{dsid}/download/{z}?fileType={file_type}'
         destdir = f'{self._outdir}/{dsid}'
         dest = f'{destdir}/{file_type}.{ext}'
 

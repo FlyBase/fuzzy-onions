@@ -115,3 +115,23 @@ def update(ctx):
         ctx.tracker.promote_to_production(dsid)
     if len(upds) > 0:
         ctx.tracker.save()
+
+
+@store.command()
+@click.pass_obj
+def findnew(ctx):
+    """Find new datasets on the remote store.
+
+    This command checks whether new datasets have been made available
+    on the SCEA staging server.
+    """
+
+    experiments = ctx.raw_store._staging.get_experiments_list()
+    known_ids = [d.id for d in ctx.raw_store.datasets]
+    for experiment in [
+        e for e in experiments if e['experimentAccession'] not in known_ids
+    ]:
+        accession = experiment['experimentAccession']
+        load_date = experiment['loadDate']
+        description = experiment['experimentDescription']
+        print(f"{accession}\t{load_date}\t{description}")
