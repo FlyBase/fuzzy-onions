@@ -6,6 +6,7 @@
 # for the detailed conditions.
 
 import logging
+from datetime import datetime
 
 import click
 from click_shell.core import make_click_shell
@@ -118,8 +119,9 @@ def update(ctx):
 
 
 @store.command()
+@click.option('--since', '-s', type=click.DateTime(), default=None)
 @click.pass_obj
-def findnew(ctx):
+def findnew(ctx, since):
     """Find new datasets on the remote store.
 
     This command checks whether new datasets have been made available
@@ -128,10 +130,13 @@ def findnew(ctx):
 
     experiments = ctx.raw_store._staging.get_experiments_list()
     known_ids = [d.id for d in ctx.raw_store.datasets]
-    for experiment in [
-        e for e in experiments if e['experimentAccession'] not in known_ids
-    ]:
+    for experiment in experiments:
         accession = experiment['experimentAccession']
         load_date = experiment['loadDate']
-        description = experiment['experimentDescription']
-        print(f"{accession}\t{load_date}\t{description}")
+
+        if accession in known_ids:
+            continue
+        if since is not None and datetime.strptime(load_date, '%d-%m-%Y') < since:
+            continue
+
+        print(f"{accession}\t{load_date}\t{experiment['experimentDescription']}")
