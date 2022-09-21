@@ -195,7 +195,7 @@ def findnew(ctx, since, download):
                     or 'inferred cell type - ontology labels'
                     in experiment['experimentalFactors']
                 ):
-                    tds.cell_types.set_obtained(date=load_date)
+                    tds.cell_types.set_available(date=load_date)
 
     if downloaded > 0:
         ctx.tracker.save()

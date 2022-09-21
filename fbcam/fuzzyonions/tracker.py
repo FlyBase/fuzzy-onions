@@ -421,6 +421,12 @@ class CellTypesData(object):
         self._status = CellTypeAvailability.OBTAINED
         self._obtained = date
 
+    def set_available(self, date=datetime.today()):
+        """Marks that cell types are readily available."""
+
+        self._status = CellTypeAvailability.AVAILABLE
+        self._obtained = date
+
     def to_string(self):
         """Gets a one-line human-readable representation."""
 
