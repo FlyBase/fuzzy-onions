@@ -159,8 +159,7 @@ def findnew(ctx, since, download):
             ds = ctx.raw_store.get(accession)
             if ds:
                 downloaded += 1
-                ctx.tracker.add_dataset(accession, ds.staging)
-                tds = ctx.tracker.get_dataset(accession)
+                tds = ctx.tracker.add_dataset(accession, ds.staging)
 
                 if (
                     'inferred cell type - authors labels'

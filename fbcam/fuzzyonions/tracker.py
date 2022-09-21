@@ -134,15 +134,19 @@ class DatasetTracker(object):
     def add_dataset(self, dsid, staging=False):
         """Adds a dataset to track."""
 
-        if self.get_dataset(dsid):
-            return
-
         status = SceaStatus.IN_PRODUCTION
         if staging:
             status = SceaStatus.IN_STAGING
 
-        ds = {'scea': {'dataset_id': dsid, 'status': str(status)}}
-        self._datasets.append(TrackedDataset.from_dict(ds))
+        ds = self.get_dataset(dsid)
+        if ds is None:
+            ds = TrackedDataset.from_dict(
+                {'scea': {'dataset_id': dsid, 'status': str(status)}}
+            )
+            self._datasets.append(ds)
+        else:
+            ds.scea.status = status
+        return ds
 
     def promote_to_production(self, dsid):
         """Marks a dataset as being in production at the SCEA."""
