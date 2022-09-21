@@ -59,6 +59,12 @@ class Store(object):
 
         return updated
 
+    def delete(self, dsids):
+        """Delete specified datasets from the store."""
+
+        self._staging.delete(dsids)
+        self._prod.delete(dsids)
+
 
 @click.group(name="store", invoke_without_command=True)
 @click.pass_context
@@ -72,13 +78,23 @@ def store(ctx):
 
 @store.command()
 @click.argument('dsid')
+@click.option(
+    '--force',
+    '-f',
+    is_flag=True,
+    default=False,
+    help="Download the dataset even if it already exists in the local store.",
+)
 @click.pass_obj
-def download(ctx, dsid):
+def download(ctx, dsid, force):
     """Download a SCEA dataset.
 
     This command fetches the data for the specified dataset from the
     SCEA server.
     """
+
+    if force:
+        ctx.raw_store.delete([dsid])
 
     ds = ctx.raw_store.get(dsid)
     if ds:

@@ -81,6 +81,9 @@ class FileStore(object):
     def delete(self, dsids):
         """Remove the specified datasets from the local file store."""
 
+        if self._datasets is None:
+            self._refresh()
+
         for dsid in dsids:
             if dsid in self._datasets:
                 self._datasets[dsid].delete()
