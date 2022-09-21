@@ -27,15 +27,20 @@ class Store(object):
 
         return self._prod.datasets + self._staging.datasets
 
-    def get(self, dsid, download=True):
+    def get(self, dsid, download=True, staging=False):
         """Gets a single dataset.
 
         :param dsid: the dataset ID
         :param download: if True, the dataset will be downloaded if it
             is not already available locally
+        :param staging: if True, the dataset will be downloaded from
+            the staging server, regardless of whether it is available
+            on the production server
         """
 
-        ds = self._prod.get(dsid, download)
+        ds = None
+        if not staging:
+            ds = self._prod.get(dsid, download)
         if ds is None:
             ds = self._staging.get(dsid, download)
         return ds
@@ -85,8 +90,15 @@ def store(ctx):
     default=False,
     help="Download the dataset even if it already exists in the local store.",
 )
+@click.option(
+    '--staging',
+    '-s',
+    is_flag=True,
+    default=False,
+    help="Force downloading from the staging server.",
+)
 @click.pass_obj
-def download(ctx, dsid, force):
+def download(ctx, dsid, force, staging):
     """Download a SCEA dataset.
 
     This command fetches the data for the specified dataset from the
@@ -96,7 +108,7 @@ def download(ctx, dsid, force):
     if force:
         ctx.raw_store.delete([dsid])
 
-    ds = ctx.raw_store.get(dsid)
+    ds = ctx.raw_store.get(dsid, staging=staging)
     if ds:
         ctx.tracker.add_dataset(dsid, ds.staging)
         ctx.tracker.save()
