@@ -778,6 +778,8 @@ class Biosample(DatasetBase):
         self._assay = Assay(spec, self)
         self._subset = None
 
+        self.include_clusters = spec.get('include_clusters', True)
+
     @property
     def symbol(self):
         return self.project.symbol + '_' + self._symbol
@@ -1058,6 +1060,7 @@ class Result(DatasetBase):
             project = self._assays[0].sample.project
             symbol = self._assays[0].symbol + '_clustering'
             title = "Clustering analysis of " + self._assays[0].sample.title
+            self._with_clusters = self._assays[0].sample.include_clusters
         else:
             if symbol is None:
                 symbol = project.symbol + '_clustering'
@@ -1069,6 +1072,7 @@ class Result(DatasetBase):
                     + project.title[0].lower()
                     + project.title[1:]
                 )
+            self._with_clusters = True
 
         self._project = project
         self._symbol = symbol
@@ -1147,7 +1151,10 @@ class Result(DatasetBase):
         """
 
         if self._clusters is None:
-            self._clusters = self._get_clusters()
+            if self._with_clusters:
+                self._clusters = self._get_clusters()
+            else:
+                self._clusters = []
         return self._clusters
 
     def get_sex(self):
