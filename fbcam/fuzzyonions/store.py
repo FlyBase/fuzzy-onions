@@ -38,11 +38,18 @@ class Store(object):
             on the production server
         """
 
-        ds = None
-        if not staging:
-            ds = self._prod.get(dsid, download)
+        # First look up only locally
+        ds = self._prod.get(dsid, download=False)
         if ds is None:
-            ds = self._staging.get(dsid, download)
+            ds = self._staging.get(dsid, download=False)
+
+        # Not available locally, download?
+        if ds is None and download:
+            if not staging:
+                ds = self._prod.get(dsid, download=True)
+            if ds is None:
+                ds = self._staging.get(dsid, download=True)
+
         return ds
 
     def update(self):
