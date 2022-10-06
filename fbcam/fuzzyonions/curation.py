@@ -1708,6 +1708,12 @@ def extract(ctx, specfile, output):
         for cluster in result.clusters:
             output.write(f"    {cluster.cell_type}: {cluster.count}\n")
 
+    for result in ds.get_extra_results():
+        output.write(f"Result {result.symbol}\n")
+        output.write(f"  Cells: {result.count}\n")
+        for cluster in result.clusters:
+            output.write(f"    {cluster.cell_type}: {cluster.count}\n")
+
 
 @curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
