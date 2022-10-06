@@ -396,12 +396,14 @@ class ProjectContainer(DatasetBase):
             symbol = spec['result'].get('symbol')
             title = spec['result'].get('title')
             stage = spec['result'].get('stage')
+            protocol = spec['result'].get('analysis')
             r = Result(
                 [s.assay for s in self._samples],
                 project=self,
                 symbol=symbol,
                 title=title,
                 stage=stage,
+                protocol=protocol,
             )
             self._results.append(r)
 
@@ -1049,7 +1051,9 @@ class Assay(DatasetBase):
 class Result(DatasetBase):
     """A clustering analysis from a scRNAseq assay."""
 
-    def __init__(self, assay, project=None, symbol=None, title=None, stage=None):
+    def __init__(
+        self, assay, project=None, symbol=None, title=None, stage=None, protocol=None
+    ):
         if isinstance(assay, list):
             self._assays = assay
         else:
@@ -1078,6 +1082,7 @@ class Result(DatasetBase):
         self._symbol = symbol
         self._title = title
         self._stage = stage
+        self._protocol = protocol
 
         self._desc = ""
         self._clusters = None
@@ -1124,9 +1129,10 @@ class Result(DatasetBase):
 
     @property
     def analysis_protocol(self):
-        # FIXME: Allow to specify custom protocol for
-        # non-sample-specific analyses
-        return self.assay.sample.analysis_protocol
+        if self._protocol is not None:
+            return self._protocol
+        else:
+            return self.assay.sample.analysis_protocol
 
     @property
     def count(self):
