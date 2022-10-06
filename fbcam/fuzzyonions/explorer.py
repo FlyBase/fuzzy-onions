@@ -124,7 +124,7 @@ def select(ctx, selectors, clear):
         ctx.subset = None
 
     for selector in selectors:
-        column, value = selector.split(':')
+        column, value = selector.split(':', maxsplit=1)
         col = _get_column(ctx, column)
         if not col:
             print(f"Column '{column}' not found")
