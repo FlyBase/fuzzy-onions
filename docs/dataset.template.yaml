@@ -2,13 +2,14 @@
 symbol: scRNAseq_yyyy_Authorname
 
 # List of filenames describing the source datasets
+# (absolute or relative to the directory containing this file)
 sources:
   - E-MTAB-xxxxx.yaml
 
 # FlyBase reference associated with the dataset
 reference:
   fbrf: FBrfxxxxxxx
-  journal: 
+  journal:
 
 # Project title and description
 title:
@@ -23,16 +24,21 @@ creator:
 cv_terms:
   go_cc: [ ] # GO cellular components (typically unused)
   go_mf: [ ] # GO molecular functions (typically unused)
-  go_bo: [ ] # GO biological processes
+  go_bp: [ ] # GO biological processes
   so: [ ] # Sequence Ontology (typically unused)
-  fbcv: [ ] # FBcv's study design terms
+  fbcv: [ ] # Term from FBcv's "study design" (FBcv:0003123) hierarchy 
 
 # Project-level protocols
 protocols:
   collection: # Protocol for sample collection (typically not used at this level)
-  preparation: # Protocol for RNA-Seq libraries preparation
-  assay: # Protocol for RNA-Seq libraries sequencing
-  analysis: # Protocol for data analysis
+  preparation: # Protocol for RNA-Seq libraries preparation (typically left empty)
+  assay: # Protocol for RNA-Seq libraries sequencing (typically left empty)
+  analysis: # Protocol for data analysis (typically used only here,
+            # automatically propagated to child datasets)
+
+# List of cell types for which we should not generate cluster objects
+# (can also be used at the sub-project or sample level)
+excluded_cell_types: [ ]
 
 # Default values for samples
 # This dictionary may contain any of the keys expected in a
@@ -40,35 +46,101 @@ protocols:
 # key, the value from the "defaults" dictionary will be used.
 defaults: { }
 
-# List of samples
-samples:
-  - symbol: # the sample's short code
-    conditions: # columns to use to select cells belonging to that sample
-      - Sample Characteristic[genotype]
-      - Sample Characteristic[sex]
-    selectors: # values to use to select cells belonging to that sample
-      - w[1118]
-      - male
+# Optional project-wide analysis
+result:
+  symbol: FULL_seq_clustering
+  title: Consolidated clustering analysis of ...
+  stage: # FBdv term
+  analysis: # Custom analysis protocol; if not specified, the analysis protocol
+            # of the first sample is used instead
 
+# Subprojects (optional)
+# Use this to break down the dataset in subprojects.
+# Note that a project contains *either* subprojects or samples, but not both.
+subprojects:
+
+  # First subproject
+  - symbol: PROJ1
     title: 
-    protocols:
+    description:
+    cv_terms: # Same as for the top-project level, but typically unused for subprojects
+      go_cc: [ ]
+      go_mf: [ ]
+      go_bp: [ ]
+      so: [ ]
+      fbcv: [ ]
+    protocols: # Same as for the top-project level, used as necessary
       collection:
-    cv_terms:
-      fbcv_sample: [ ] # FBcv terms describing how the sample was obtained
-      fbcv_assay: [ ] # FBcv terms describing how the sample was assayed
+      preparation:
+      assay:
+      analysis:
+    excluded_cell_types: [ ]
+    defaults: { }
 
-    species:
-      other: [ ] # Species (other than Dmel) involved in this sample
+    # Optional subproject-wide analysis
+    result:
+      symbol: FULL_seq_clustering
+      title: Consolidated clustering analysis of ...
+      stage: # FBdv term
+      analysis: # Custom analysis protocol
 
-    strain:
-    genotype:
-    anatomical_part:
-    stage:
-    sex: # "female" or "male"
-    is_single_nucleus: # true or false (default is false)
+    # In theory, subprojects can be nested to an arbitrary depth.
+    # Practically, only one level has ever been used for now, and it is
+    # unlikely more levels would ever be needed.
+    # subprojects: [ ]
 
-    technical_reference: # short sample code
-    biological_reference: # short sample code
+    # Samples in this subproject
+    samples:
 
-    entities: # Experimental factors used in this sample
-      - [ FBzzXXXXXXX, type ]
+      # First sample in first subproject
+      - symbol: S1 # sample's short code
+        title: dissociated cells from ...
+
+        # How to select the cells that belong to this sample
+        conditions: # Columns containing distinguishing values
+          - Sample Characteristic[genotype]
+          - Sample Characteristic[sex]
+        selectors: # Distinguishing values (same order)
+          - w[1118]
+          - male
+
+        title: dissociated cells from ...
+        protocols:
+          # Protocols for sample collection and data analysis, if different from
+          # the ones specified at the project or subproject level
+          collection: # Typically used at this level
+          analysis: # Typically not used at this level
+
+        cv_terms:
+          fbcv_sample: # Terms from FBcv's "biosample attribute" (FBcv:0003137) hierarchy
+            - multi-individual sample ; FBcv:0003141
+            - tissue dissection ; FBcv:0003169
+          fbcv_assay: # Terms from FBcv's "assay attribute" (FBcv:0003175) hierarchy
+            - 10x sequencing ; FBcv:0009008
+
+        species:
+          other: [ ] # Species (other than Dmel) involved in this sample
+
+        strain:
+        genotype:
+        anatomical_part: # FBbt term
+        stage: # FBdv term
+        sex: # "female" or "male", or absent
+        is_single_nucleus: # true or false (default is false)
+
+        technical_reference: # Short sample code
+        biological_reference: # Short sample code
+
+        entities: # Experimental factors used in this sample
+          - [ FBalXXXXXXX, allele_used ]
+
+        include_clusters: # true or false (default is true)
+                          # If false, the analysis of this sample will not
+                          # have clusters; use this for case where you only
+                          # need clusters from a (sub)project-wide analysis.
+
+
+# List of samples
+# To be used only if the top-level project does not contain subprojects.
+# Keys are the same as for subproject-level samples as shown above.
+samples: [ ]
