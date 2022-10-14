@@ -1699,20 +1699,27 @@ def extract(ctx, specfile, output):
 
     ds = ctx.dataset_from_specfile(specfile)
 
-    for sample in ds.get_all_samples():
-        output.write(f"Sample {sample.symbol}\n")
+    def print_project(project, indent=""):
+        output.write(f"{indent}Project {project.symbol}\n")
 
-        result = sample.project.get_assay_single_analysis(sample.assay)
-        output.write(f"  Cells: {result.count}\n")
-        output.write(f"  Reads: {sample.assay.count}\n")
-        for cluster in result.clusters:
-            output.write(f"    {cluster.cell_type}: {cluster.count}\n")
+        for sample in project.samples:
+            output.write(f"{indent}  Sample {sample.symbol}\n")
+            result = sample.project.get_assay_single_analysis(sample.assay)
+            output.write(f"{indent}    Cells: {result.count}\n")
+            output.write(f"{indent}    Reads: {sample.assay.count}\n")
+            for cluster in result.clusters:
+                output.write(f"{indent}      {cluster.cell_type}: {cluster.count}\n")
 
-    for result in ds.get_extra_results():
-        output.write(f"Result {result.symbol}\n")
-        output.write(f"  Cells: {result.count}\n")
-        for cluster in result.clusters:
-            output.write(f"    {cluster.cell_type}: {cluster.count}\n")
+        for result in project.get_extra_results():
+            output.write(f"{indent}  Result {result.symbol}\n")
+            output.write(f"{indent}    Cells: {result.count}\n")
+            for cluster in result.clusters:
+                output.write(f"{indent}      {cluster.cell_type}: {cluster.count}\n")
+
+        for subproject in project.subprojects:
+            print_project(subproject, indent + "  ")
+
+    print_project(ds)
 
 
 @curate.command()
