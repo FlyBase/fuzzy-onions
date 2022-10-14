@@ -26,6 +26,7 @@ class SourceDataset(object):
         self._corrections = []
         for corrset in spec.get('corrections', []):
             self._corrections.append(CorrectionSet(corrset))
+        self._genome = spec.get('genome', 'Dmel R6.32')
         self._data = None
 
     @property
@@ -51,6 +52,12 @@ class SourceDataset(object):
         """The name of the column containing input cell types."""
 
         return self._input_ct_column
+
+    @property
+    def reference_genome(self):
+        """The reference genome that has been used to align reads."""
+
+        return self._genome
 
     @property
     def data(self):
@@ -575,7 +582,6 @@ class Project(ProjectContainer):
 
         self._reference = FlybaseReference(spec.get('reference', {}))
         self._lab = SourceLab(spec.get('creator', {}))
-        self._ref_genome = spec.get('reference_genome', 'Dmel R6.32')
 
         self._sources = []
 
@@ -627,7 +633,7 @@ class Project(ProjectContainer):
     def reference_genome(self):
         """The version of the reference genome assembly (LC14h)."""
 
-        return self._ref_genome
+        return self.sources[0].reference_genome
 
     def extract_reads(self):
         """Extract the number of sequencing reads for each sample.
