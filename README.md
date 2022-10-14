@@ -12,7 +12,7 @@ Fuzzy-Onions expects a configuration file under the name
 `$XDG_CONFIG_HOME/fuzzyonions/config` (on GNU/Linux) or
 `~/Library/Application Support/fuzzyonions/config` (on Mac OS).
 
-Here is a sample configuration file:
+Here is a minimal sample configuration file:
 
 ```
 [store]
@@ -23,6 +23,9 @@ staging: <same, but for datasets from the staging server>
 proformae: <path to a directory containing FlyBase's proformae files>
 ```
 
+See the [example configuration file](docs/example.conf) for more details
+about the contents of that file.
+
 
 Basic usage
 -----------
@@ -31,59 +34,17 @@ Call `fzo -h` to get a list of the available subcommands, and
 
 The main commands are:
 
-* `download`, to download a dataset from the SCEA;
-
-* `list`, to list the locally available datasets;
+* `store`, to manage the local cache of datasets;
 
 * `explorer`, to enter a mode allowing to interactively explore the
 contents of a dataset;
-  
-* `extract`, `sumexpr`, and `proforma`, to extract useful data for
-curation from a dataset.
 
+* `curate`, to produce a proforma or a summarised expression table from
+a dataset.
 
-Dataset description file
-------------------------
-Several subcommands expect a JSON-formatted file describing the dataset
-to use.
+* `discover`, to automatically discover newly published scRNAseq papers.
 
-Here is a sample description file:
-
-```
-{
-    "dataset_id": "<the SCEA dataset ID>",
-    "symbol": "<Base symbol to use for FlyBase FBlc entities>",
-    "cell_types_column": "<Name of the column containing cell types>",
-    "corrections": [
-    	# List of "corrections" to apply to SCEA annotations
-    	{
-    		"source": "<Source column to correct>",
-    		"destination:" "<Name of the column to add>",
-    		"values": [
-    			# List of replacements to do
-    			[ "Original value", "New value", "Comment" ]
-    		]
-    	}
-    ],
-    "conditions": [
-         # List of columns in the experiment design table
-         # used to select cells belonging to different samples
-    ],
-    "samples": [
-    	# List of biosamples in the datasets
-    	{
-    		"symbol": "<Suffix to identify the biosample>",
-    		"selectors": [
-    			# List of values to select cells belonging to
-    			# that biosample (in the same order as in the
-    			# "Conditions" key above)
-    		],
-    		"title": "<Free-text name of that biosample>",
-    		"stage": "<Developmental stage, as a FBdv term>"
-    	}
-    ]
-}
-```
+* `tracker`, to keep track of the datasets and their status.
 
 
 Copying
