@@ -14,6 +14,41 @@ from click_shell.core import make_click_shell
 from pandas import concat, read_csv, DataFrame
 
 
+grep_svm_script = """
+SVM_DIR=$1
+REGEX=$2
+
+find $SVM_DIR -type f | while read FILE ; do
+    BASENAME=${FILE##*/}
+    case "$BASENAME" in
+    FBrf*)
+        echo -e "$BASENAME\\t$FILE" >> $$.fulltext-by-fbrf
+        ;;
+    *)
+        echo -e "$BASENAME\\t$FILE" >> $$.fulltext-by-pmid
+    esac
+done
+
+cat | while read FBRF PMID ; do
+    FULLTEXT_PATH=$(cat $$.fulltext-by-fbrf | grep ^$FBRF | cut -f2)
+    if [ -z "$FULLTEXT_PATH" ]; then
+        FULLTEXT_PATH=$(cat $$.fulltext-by-pmid | grep ^$PMID | cut -f2)
+    fi
+
+    if [ -z "$FULLTEXT_PATH" ]; then
+        echo -e "$FBRF\\tFull-text not available"
+    elif [ ! -f "$FULLTEXT_PATH" ]; then
+        echo -e "$FBRF\\tFull-text not available"
+    else
+        NMATCH=$(grep -i -c -E "$REGEX" $FULLTEXT_PATH)
+        echo -e "$FBRF\\t$NMATCH"
+    fi
+done
+
+rm $$.fulltext-by-{fbrf,pmid}
+"""
+
+
 class DiscoverContext(object):
     """A helper object for all discovery operations."""
 
@@ -45,8 +80,7 @@ class DiscoverContext(object):
         if self._miner is None:
             hostname = self._config.get('textmining', 'host')
             directory = self._config.get('textmining', 'directory')
-            script = self._config.get('textmining', 'grep_script')
-            self._miner = TextMiner(hostname, directory, script)
+            self._miner = TextMiner(hostname, directory)
         return self._miner
 
     def filter_out_known_datasets(self, pmids):
@@ -146,7 +180,7 @@ class DiscoverContext(object):
 
     def grep_fulltexts(self, references):
         self.textminer.open()
-        regex = self._config.get('textmining', 'grep_regex')
+        regex = self._config.get('textmining', 'pattern')
         res = self.textminer.grep(regex, references)
         self.textminer.close()
 
@@ -156,15 +190,20 @@ class DiscoverContext(object):
 class TextMiner(object):
     """A helper object to grep the fulltext archive."""
 
-    def __init__(self, hostname, directory, script):
+    def __init__(self, hostname, directory):
         self._hostname = hostname
         self._directory = directory
-        self._script = script
         self._ready = False
 
     def open(self):
         if not self._ready:
-            subprocess.run(['scp', self._script, f'{self._hostname}:grep-svm.sh'])
+            ssh = subprocess.Popen(
+                ['ssh', self._hostname, 'cat > grep-svm.sh'],
+                shell=False,
+                text=True,
+                stdin=subprocess.PIPE,
+            )
+            ssh.communicate(grep_svm_script)
             self._ready = True
 
     def close(self):
