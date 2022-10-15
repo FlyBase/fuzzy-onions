@@ -1,2 +1,2 @@
-include LICENSE.md README.md requirements.txt grep-svm.sh
+include LICENSE.md README.md requirements.txt
 graft docs
