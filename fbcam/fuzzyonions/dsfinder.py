@@ -293,8 +293,12 @@ def findnew(obj, filename, output):
     click.echo("Querying the fulltext archive...")
     queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
     mentions = obj.grep_fulltexts(queries)
+    pos = 0
     for fbrf, nmatch in mentions.items():
+        if nmatch > 0:
+            pos += 1
         table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
+    click.echo(f"References matching the scRNAseq pattern: {pos}")
 
     if output is None:
         output = filename
