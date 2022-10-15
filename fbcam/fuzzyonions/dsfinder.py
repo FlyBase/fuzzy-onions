@@ -29,7 +29,9 @@ find $SVM_DIR -type f | while read FILE ; do
     esac
 done
 
-cat | while read FBRF PMID ; do
+for REF in $REFS ; do
+    FBRF=${REF%:*}
+    PMID=${REF#*:}
     FULLTEXT_PATH=$(cat $$.fulltext-by-fbrf | grep ^$FBRF | cut -f2)
     if [ -z "$FULLTEXT_PATH" ]; then
         FULLTEXT_PATH=$(cat $$.fulltext-by-pmid | grep ^$PMID | cut -f2)
@@ -55,7 +57,6 @@ class DiscoverContext(object):
     def __init__(self, config, database):
         self._config = config
         self._database = database
-        self._miner = None
 
     @property
     def flybase_table_file(self):
@@ -74,14 +75,6 @@ class DiscoverContext(object):
     @property
     def cursor(self):
         return self._database.cursor
-
-    @property
-    def textminer(self):
-        if self._miner is None:
-            hostname = self._config.get('textmining', 'host')
-            directory = self._config.get('textmining', 'directory')
-            self._miner = TextMiner(hostname, directory)
-        return self._miner
 
     def filter_out_known_datasets(self, pmids):
         table = read_csv(self.scea_dataset_file, dtype=str)
@@ -179,49 +172,32 @@ class DiscoverContext(object):
             return f'{res[0][0]} et al., {year}'
 
     def grep_fulltexts(self, references):
-        self.textminer.open()
-        regex = self._config.get('textmining', 'pattern')
-        res = self.textminer.grep(regex, references)
-        self.textminer.close()
+        """Search the full-texts archive for references to scRNAseq.
 
-        return res
+        :param references: a list of tuple (FBrf, PMID)
+        :return: a dictionary whose keys are FBrfs and values are numbers
+                 of references to scRNAseq
+        """
 
+        hostname = self._config.get('textmining', 'host')
+        directory = self._config.get('textmining', 'directory')
+        pattern = self._config.get('textmining', 'pattern')
 
-class TextMiner(object):
-    """A helper object to grep the fulltext archive."""
-
-    def __init__(self, hostname, directory):
-        self._hostname = hostname
-        self._directory = directory
-        self._ready = False
-
-    def open(self):
-        if not self._ready:
-            ssh = subprocess.Popen(
-                ['ssh', self._hostname, 'cat > grep-svm.sh'],
-                shell=False,
-                text=True,
-                stdin=subprocess.PIPE,
-            )
-            ssh.communicate(grep_svm_script)
-            self._ready = True
-
-    def close(self):
-        if self._ready:
-            subprocess.run(['ssh', self._hostname, 'rm grep-svm.sh'])
-            self._ready = False
-
-    def grep(self, regex, references):
-        lines = [f'{a} {b}' for a, b in references]
-        command = f"bash ./grep-svm.sh {self._directory} '{regex}'"
+        script = (
+            'REFS="'
+            + ' '.join([f'{fbrf}:{pmid}' for fbrf, pmid in references])
+            + '"\n'
+            + grep_svm_script
+        )
+        command = f"bash -s {directory} '{pattern}'"
         ssh = subprocess.Popen(
-            ['ssh', self._hostname, command],
+            ['ssh', hostname, command],
             shell=False,
             text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        output, _ = ssh.communicate('\n'.join(lines) + '\n')
+        output, _ = ssh.communicate(script)
 
         res = {}
         for line in output.split('\n'):
