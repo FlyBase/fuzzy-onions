@@ -205,7 +205,7 @@ class DiscoverContext(object):
             if '\t' not in line:
                 continue
             fbrf, nmatches = line.split('\t')
-            res[fbrf] = nmatches
+            res[fbrf] = int(nmatches)
         return res
 
 
