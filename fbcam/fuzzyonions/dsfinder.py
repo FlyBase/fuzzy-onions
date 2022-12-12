@@ -205,7 +205,10 @@ class DiscoverContext(object):
             if '\t' not in line:
                 continue
             fbrf, nmatches = line.split('\t')
-            res[fbrf] = int(nmatches)
+            if nmatches == 'Full-text not available':
+                res[fbrf] = -1
+            else:
+                res[fbrf] = int(nmatches)
         return res
 
 
@@ -294,11 +297,16 @@ def findnew(obj, filename, output):
     queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
     mentions = obj.grep_fulltexts(queries)
     pos = 0
+    nas = 0
     for fbrf, nmatch in mentions.items():
         if nmatch > 0:
             pos += 1
+        elif nmatch == -1:
+            nas += 1
+            nmatch = 'Full-text not available'
         table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
     click.echo(f"References matching the scRNAseq pattern: {pos}")
+    click.echo(f"References without full text: {nas}")
 
     if output is None:
         output = filename
