@@ -110,7 +110,7 @@ class FileStore(object):
 
         if refresh:
             if mtime is not None:
-                mtime = datetime.fromtimestamp().astimezone()
+                mtime = datetime.fromtimestamp(mtime).astimezone()
             self._downloader.get_experiments_list(since=mtime)
 
         with open(expfile, 'r') as fd:
