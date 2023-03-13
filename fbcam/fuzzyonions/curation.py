@@ -11,6 +11,7 @@ import logging
 import pandas
 import click
 from click_shell.core import make_click_shell
+from pathlib import Path
 
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder, ProformaType
 
@@ -1333,7 +1334,7 @@ class Cluster(DatasetBase):
     def sex(self):
         return self._sex
 
-    def get_cell_ids(self):
+    def get_cell_ids(self, with_source_dataset=False):
         """Get the IDs of all cells in this cluster."""
 
         ids = []
@@ -1345,7 +1346,13 @@ class Cluster(DatasetBase):
 
             ct_column = sample.source.cell_type_column
             cl_subset = sample.subset.loc[sample.subset[ct_column] == self.cell_type]
-            ids.extend(cl_subset['Assay'].values)
+            if with_source_dataset:
+                acc = sample.source.accession
+                ids.extend(
+                    [f'{acc}:{cell_id}' for cell_id in cl_subset['Assay'].values]
+                )
+            else:
+                ids.extend(cl_subset['Assay'].values)
 
         return ids
 
@@ -1830,3 +1837,33 @@ def convert(ctx, specfile, fmt, expand, output):
         json.dump(spec, output, indent=4)
     elif fmt == 'yaml':
         yaml.dump(spec, output, Dumper=yaml.SafeDumper)
+
+
+@curate.command()
+@click.argument('specfile', type=click.Path(exists=True))
+@click.option(
+    '--outdir',
+    '-d',
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+    default='clusters',
+    help="Write the cluster files in the specified directory (default: 'clusters').",
+)
+@click.pass_obj
+def genclusters(ctx, specfile, outdir):
+    """Generate cluster files for a dataset.
+
+    This command generates files containing single cell identifiers
+    for a particular cluster.
+    """
+
+    ds = ctx.dataset_from_specfile(specfile)
+    if not outdir.exists():
+        outdir.mkdir()
+
+    for result in ds.get_all_results():
+        for cluster in result.clusters:
+            logging.info(f"Cluster {cluster.symbol}")
+            fname = outdir.joinpath(f'{cluster.symbol}.lst')
+            with fname.open(mode='w') as fd:
+                fd.write('\n'.join(cluster.get_cell_ids(with_source_dataset=True)))
+                fd.write('\n')
