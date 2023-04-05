@@ -4,3 +4,4 @@ pandas
 IPython
 pyyaml
 psycopg2
+pronto

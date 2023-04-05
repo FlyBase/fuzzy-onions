@@ -21,6 +21,7 @@ from fbcam.fuzzyonions.store import store, Store
 from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 from fbcam.fuzzyonions.database import DatabaseHelper
 from fbcam.fuzzyonions.dsfinder import discover
+from fbcam.fuzzyonions.annotations import annots
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -157,6 +158,7 @@ main.add_command(curate)
 main.add_command(explorer)
 main.add_command(tracker)
 main.add_command(discover)
+main.add_command(annots)
 
 if __name__ == '__main__':
     main()
