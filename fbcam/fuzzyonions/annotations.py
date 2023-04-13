@@ -12,6 +12,27 @@ from pronto import Ontology
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
 
+def _get_fbbt_reverse_dict(path):
+    fbbt = Ontology(path)
+    reverse_dict = {}
+    for term in fbbt.terms():
+        reverse_dict[term.name] = term.id
+    return reverse_dict
+
+
+def _get_cell_types_for_dataset(dataset, fbbt):
+    if CELL_TYPES_COLUMN not in dataset.experiment_design:
+        return []
+
+    cell_types = []
+    for cell_type in sorted(
+        dataset.experiment_design[CELL_TYPES_COLUMN].dropna().unique()
+    ):
+        term_id = fbbt.get(cell_type, None)
+        cell_types.append((cell_type, term_id))
+    return cell_types
+
+
 @click.group(name="annots", invoke_without_command=True)
 @click.pass_context
 def annots(ctx):
@@ -49,10 +70,7 @@ def validate(ctx, dsids, fbbt_path, invalid_only):
     term ID (or None if the annotation is not a valid FBbt term).
     """
 
-    fbbt = Ontology(fbbt_path)
-    term_ids_by_name = {}
-    for term in fbbt.terms():
-        term_ids_by_name[term.name] = term.id
+    term_ids_by_name = _get_fbbt_reverse_dict(fbbt_path)
 
     if 'all' in dsids:
         datasets = ctx.raw_store.datasets
@@ -63,12 +81,8 @@ def validate(ctx, dsids, fbbt_path, invalid_only):
 
     print("dataset,cell type annotation,term id")
     for dataset in datasets:
-        if CELL_TYPES_COLUMN not in dataset.experiment_design:
-            continue
-
-        for cell_type in sorted(
-            dataset.experiment_design[CELL_TYPES_COLUMN].dropna().unique()
+        for cell_type, term_id in _get_cell_types_for_dataset(
+            dataset, term_ids_by_name
         ):
-            term_id = term_ids_by_name.get(cell_type, None)
             if not invalid_only or term_id is None:
                 print(f"{dataset.id},{cell_type},{term_id}")
