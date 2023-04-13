@@ -15,31 +15,60 @@ from shutil import copyfile
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
 
-def _get_fbbt_reverse_dict(path):
-    fbbt = Ontology(path)
-    reverse_dict = {}
-    for term in fbbt.terms():
-        reverse_dict[term.name] = term.id
-    return reverse_dict
+class AnnotationContext(object):
+    """A helper object for all commands manipulating annotations."""
 
+    def __init__(self, store, fbbt_path):
+        self.store = store
+        self._fbbt_path = fbbt_path
+        self._fbbt = None
+        self._fbbt_reverse_dict = None
 
-def _get_cell_types_for_dataset(dataset, fbbt):
-    if CELL_TYPES_COLUMN not in dataset.experiment_design:
-        return []
+    @property
+    def fbbt(self):
+        if self._fbbt is None:
+            self._fbbt = Ontology(self._fbbt_path)
+        return self._fbbt
 
-    cell_types = []
-    for cell_type in sorted(
-        dataset.experiment_design[CELL_TYPES_COLUMN].dropna().unique()
-    ):
-        term_id = fbbt.get(cell_type, None)
-        cell_types.append((cell_type, term_id))
-    return cell_types
+    @property
+    def fbbt_ids(self):
+        if self._fbbt_reverse_dict is None:
+            self._fbbt_reverse_dict = {}
+            for term in self.fbbt.terms():
+                self._fbbt_reverse_dict[term.name] = term.id
+        return self._fbbt_reverse_dict
+
+    def get_cell_types_for_dataset(self, dataset, invalid_only=False):
+        if CELL_TYPES_COLUMN not in dataset.experiment_design:
+            return []
+
+        cell_types = []
+        for cell_type in sorted(
+            dataset.experiment_design[CELL_TYPES_COLUMN].dropna().unique()
+        ):
+            term_id = self.fbbt_ids.get(cell_type, None)
+            if not invalid_only or term_id is None:
+                cell_types.append((cell_type, term_id))
+
+        return cell_types
 
 
 @click.group(name="annots", invoke_without_command=True)
+@click.option(
+    '--fbbt',
+    '-f',
+    'fbbt_path',
+    type=click.Path(exists=True),
+    help="""Use the specified FBbt file. Default is to download the ontology
+            from the PURL server.""",
+)
 @click.pass_context
-def annots(ctx):
+def annots(ctx, fbbt_path):
     """Manipulate cell type annotations."""
+
+    if fbbt_path is None:
+        fbbt_path = 'http://purl.obolibrary.org/obo/fbbt.obo'
+    ctx.obj = AnnotationContext(ctx.obj.raw_store, fbbt_path)
 
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-annots>")
@@ -49,14 +78,6 @@ def annots(ctx):
 @annots.command()
 @click.argument('dsids', nargs=-1)
 @click.option(
-    '--fbbt',
-    '-f',
-    'fbbt_path',
-    default='http://purl.obolibrary.org/obo/fbbt.obo',
-    type=click.Path(exists=True),
-    help="Validate against the specified ontology file.",
-)
-@click.option(
     '--invalid-only',
     '-i',
     is_flag=True,
@@ -64,7 +85,7 @@ def annots(ctx):
     help="List only invalid cell types.",
 )
 @click.pass_obj
-def validate(ctx, dsids, fbbt_path, invalid_only):
+def validate(ctx, dsids, invalid_only):
     """Validate cell type annotations in specified dataset(s).
 
     This command checks that cell type annotations in the specified
@@ -73,34 +94,21 @@ def validate(ctx, dsids, fbbt_path, invalid_only):
     term ID (or None if the annotation is not a valid FBbt term).
     """
 
-    term_ids_by_name = _get_fbbt_reverse_dict(fbbt_path)
-
     if 'all' in dsids:
-        datasets = ctx.raw_store.datasets
+        datasets = ctx.store.datasets
     else:
         datasets = []
         for dsid in dsids:
-            datasets.append(ctx.raw_store.get(dsid))
+            datasets.append(ctx.store.get(dsid))
 
     print("dataset,cell type annotation,term id")
     for dataset in datasets:
-        for cell_type, term_id in _get_cell_types_for_dataset(
-            dataset, term_ids_by_name
-        ):
-            if not invalid_only or term_id is None:
-                print(f"{dataset.id},{cell_type},{term_id}")
+        for cell_type, term_id in ctx.get_cell_types_for_dataset(dataset, invalid_only):
+            print(f"{dataset.id},{cell_type},{term_id}")
 
 
 @annots.command('invalid')
 @click.argument('trackfile', type=click.Path())
-@click.option(
-    '--fbbt',
-    '-f',
-    'fbbt_path',
-    default='http://purl.obolibrary.org/obo/fbbt.obo',
-    type=click.Path(exists=True),
-    help="Validate against the specified ontology file.",
-)
 @click.option(
     '--output',
     '-o',
@@ -110,7 +118,7 @@ def validate(ctx, dsids, fbbt_path, invalid_only):
             The default is to write to the original file.""",
 )
 @click.pass_obj
-def track_invalid_annotations(ctx, trackfile, fbbt_path, output):
+def track_invalid_annotations(ctx, trackfile, output):
     """Track all invalid cell type annotations.
 
     This command checks all datasets for invalid cell type annotations
@@ -124,27 +132,37 @@ def track_invalid_annotations(ctx, trackfile, fbbt_path, output):
         trackdata = DataFrame(columns=['dataset', 'cell type annotation', 'new term'])
         backup_needed = False
 
-    term_ids_by_name = _get_fbbt_reverse_dict(fbbt_path)
-    all_rows = []
+    new_rows = []
 
-    for dataset in ctx.raw_store.datasets:
-        annots = _get_cell_types_for_dataset(dataset, term_ids_by_name)
-        invalid_cell_types = [a for a, b in annots if b is None]
-
+    for dataset in ctx.store.datasets:
+        # Get tracked annotations
         subset = trackdata[trackdata['dataset'] == dataset.id]
 
-        for cell_type in invalid_cell_types:
-            cell_subset = subset[subset['cell type annotation'] == cell_type]
-            new_row = {'dataset': dataset.id, 'cell type annotation': cell_type}
-            if len(cell_subset) == 1:
-                new_row['new term'] = cell_subset['new term'].iloc[0]
-            else:
-                new_row['new term'] = ''
-            all_rows.append(new_row)
+        # Get all current invalid annotations
+        annots = ctx.get_cell_types_for_dataset(dataset, invalid_only=True)
 
-    new_trackdata = DataFrame(columns=trackdata.columns, data=all_rows)
+        for cell_type, _ in annots:
+            # Get replacement term, if the annotation was already tracked
+            cell_subset = subset[subset['cell type annotation'] == cell_type]
+            if len(cell_subset) == 1:
+                new_term = cell_subset['new term'].iloc[0]
+            else:
+                new_term = ''
+
+            # Add the annotation to the new tracked data
+            new_rows.append(
+                {
+                    'dataset': dataset.id,
+                    'cell type annotation': cell_type,
+                    'new term': new_term,
+                }
+            )
+
+    # Compile new tracked set
+    trackdata = DataFrame(columns=trackdata.columns, data=new_rows)
+
     if output is None:
         output = trackfile
         if backup_needed:
             copyfile(output, f'{output}.bak')
-    new_trackdata.to_csv(output, sep='\t', index=False)
+    trackdata.to_csv(output, sep='\t', index=False)
