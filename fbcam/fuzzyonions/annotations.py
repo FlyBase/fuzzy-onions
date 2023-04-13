@@ -5,9 +5,12 @@
 # the terms of the MIT license. See the LICENSE.md file in that project
 # for the detailed conditions.
 
+import os.path
 import click
 from click_shell.core import make_click_shell
 from pronto import Ontology
+from pandas import read_csv, DataFrame
+from shutil import copyfile
 
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
@@ -86,3 +89,62 @@ def validate(ctx, dsids, fbbt_path, invalid_only):
         ):
             if not invalid_only or term_id is None:
                 print(f"{dataset.id},{cell_type},{term_id}")
+
+
+@annots.command('invalid')
+@click.argument('trackfile', type=click.Path())
+@click.option(
+    '--fbbt',
+    '-f',
+    'fbbt_path',
+    default='http://purl.obolibrary.org/obo/fbbt.obo',
+    type=click.Path(exists=True),
+    help="Validate against the specified ontology file.",
+)
+@click.option(
+    '--output',
+    '-o',
+    default=None,
+    metavar='FILENAME',
+    help="""Write the updated table to the specified file.
+            The default is to write to the original file.""",
+)
+@click.pass_obj
+def track_invalid_annotations(ctx, trackfile, fbbt_path, output):
+    """Track all invalid cell type annotations.
+
+    This command checks all datasets for invalid cell type annotations
+    and tracks them in a TSV file.
+    """
+
+    if os.path.exists(trackfile):
+        trackdata = read_csv(trackfile, sep='\t')
+        backup_needed = True
+    else:
+        trackdata = DataFrame(columns=['dataset', 'cell type annotation', 'new term'])
+        backup_needed = False
+
+    term_ids_by_name = _get_fbbt_reverse_dict(fbbt_path)
+    all_rows = []
+
+    for dataset in ctx.raw_store.datasets:
+        annots = _get_cell_types_for_dataset(dataset, term_ids_by_name)
+        invalid_cell_types = [a for a, b in annots if b is None]
+
+        subset = trackdata[trackdata['dataset'] == dataset.id]
+
+        for cell_type in invalid_cell_types:
+            cell_subset = subset[subset['cell type annotation'] == cell_type]
+            new_row = {'dataset': dataset.id, 'cell type annotation': cell_type}
+            if len(cell_subset) == 1:
+                new_row['new term'] = cell_subset['new term'].iloc[0]
+            else:
+                new_row['new term'] = ''
+            all_rows.append(new_row)
+
+    new_trackdata = DataFrame(columns=trackdata.columns, data=all_rows)
+    if output is None:
+        output = trackfile
+        if backup_needed:
+            copyfile(output, f'{output}.bak')
+    new_trackdata.to_csv(output, sep='\t', index=False)
