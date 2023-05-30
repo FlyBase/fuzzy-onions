@@ -520,7 +520,9 @@ def list_tracked_datasets(
     """List tracked datasets."""
 
     if long:
-        print("Dataset ID       EBI Status       FlyBase Status   Cell Types")
+        print(
+            "Dataset ID       EBI Status       FlyBase Ref.    FlyBase Status   Cell Types"
+        )
     elif tab:
         print("Dataset ID\tEBI Status\tFlyBase Status\tCell Types")
 
@@ -539,11 +541,11 @@ def list_tracked_datasets(
 
         if long:
             print(
-                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.get_status_string():16} {ds.cell_types.to_string()}"
+                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.reference:16}{ds.flybase.get_status_string():16} {ds.cell_types.to_string()}"
             )
         elif tab:
             print(
-                f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}"
+                f"{ds.scea.identifier}\t{ds.scea.status}\t{ds.flybase.reference}\t{ds.flybase.get_status_string()}\t{ds.cell_types.to_string()}"
             )
         else:
             print(ds.scea.identifier)
