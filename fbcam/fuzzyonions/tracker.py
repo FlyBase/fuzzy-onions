@@ -539,9 +539,11 @@ def list_tracked_datasets(
         if ct_status and ds.cell_types.status != ct_status:
             continue
 
+        flybase_ref = ds.flybase.reference or "Unset"
+
         if long:
             print(
-                f"{ds.scea.identifier:16} {ds.scea.status:16} {ds.flybase.reference:16}{ds.flybase.get_status_string():16} {ds.cell_types.to_string()}"
+                f"{ds.scea.identifier:16} {ds.scea.status:16} {flybase_ref:16}{ds.flybase.get_status_string():16} {ds.cell_types.to_string()}"
             )
         elif tab:
             print(
