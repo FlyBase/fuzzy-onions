@@ -406,7 +406,7 @@ class ProjectContainer(DatasetBase):
             stage = spec['result'].get('stage')
             protocol = spec['result'].get('analysis')
             r = Result(
-                [s.assay for s in self._samples],
+                [s.assay for s in self.get_all_samples()],
                 project=self,
                 symbol=symbol,
                 title=title,
