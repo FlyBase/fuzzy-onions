@@ -1511,6 +1511,8 @@ class ProformaWriter(object):
         self._write_result(assay.sample.project.get_assay_single_analysis(assay))
 
     def _write_result(self, result):
+        if len(result.clusters) == 0:
+            return
         self._write_common_header(result)
         self._write_field('LC6g', result.title)
         self._write_dataset_type(result)
