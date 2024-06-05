@@ -664,7 +664,9 @@ class Project(ProjectContainer):
                         f"Reading expression matrix: {p}% complete..."
                     )
                 )
-                for _, cell, value in mmf:
+                for gene, cell, value in mmf:
+                    if not gene.startswith("FBgn"):
+                        continue
                     samples = sample_by_cell_id.get(cell)
                     if samples:
                         for sample in samples:
@@ -711,16 +713,19 @@ class Project(ProjectContainer):
                         f"Reading expression table: {p}% complete..."
                     )
                 )
-                for fbgn, cell, value in mmf:
+                for gene, cell, value in mmf:
+
+                    if not gene.startswith('FBgn'):
+                        continue
 
                     if cell not in clusters_by_cell_id:
                         continue
 
                     for cluster in clusters_by_cell_id[cell]:
-                        cluster.expression[fbgn] = (
-                            cluster.expression.get(fbgn, 0) + value
+                        cluster.expression[gene] = (
+                            cluster.expression.get(gene, 0) + value
                         )
-                        cluster.presence[fbgn] = cluster.presence.get(fbgn, 0) + 1
+                        cluster.presence[gene] = cluster.presence.get(gene, 0) + 1
 
         logging.info("Processing complete.")
 
