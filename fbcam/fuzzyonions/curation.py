@@ -473,7 +473,7 @@ class ProjectContainer(DatasetBase):
 
         p = self
         while not p.is_top_project:
-            p = self.project
+            p = p.project
         return p
 
     @property
