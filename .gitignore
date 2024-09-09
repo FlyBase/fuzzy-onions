@@ -3,4 +3,6 @@
 .settings
 __pycache__
 *.pyc
+*.lock
 build
+dist

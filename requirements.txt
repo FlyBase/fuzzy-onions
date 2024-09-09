@@ -1,7 +1,0 @@
-requests
-click_shell >=2.1
-pandas
-IPython
-pyyaml
-psycopg2
-pronto

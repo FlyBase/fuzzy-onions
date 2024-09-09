@@ -1,3 +1,10 @@
+# -- Version --------------------------------------------------------------
+
+from fbcam.fuzzyonions import __version__
+
+version == __version__
+release == __version__
+
 # -- General configuration ------------------------------------------------
 
 source_suffix = { '.md': 'markdown' }

@@ -1,2 +1,42 @@
+[tool.poetry]
+name = "fuzzy-onions"
+version = "0.1.0"
+description = "FlyBase scRNAseq scripts"
+license = "MIT"
+authors = ["Damien Goutte-Gattat <dpg44@cam.ac.uk>"]
+readme = "README.md"
+repository = "https://github.com/FlyBase/fuzzy-onions"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+packages = [{include = "fbcam", from = "src"}]
+include = [{ path = "docs", format = "sdist" }]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+click-shell = ">=2.1"
+pandas = "*"
+ipython = "*"
+pyyaml = "*"
+psycopg2 = "*"
+pronto = "*"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+sphinx-rtd-theme = "*"
+
+[tool.poetry.scripts]
+fzo = "fbcam.fuzzyonions.main:main"
+
 [tool.black]
 skip-string-normalization = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
