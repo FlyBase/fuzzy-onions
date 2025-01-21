@@ -20,12 +20,20 @@ class Store(object):
     def __init__(self, config):
         self._prod = FileStore(config.get('store', 'production'))
         self._staging = FileStore(config.get('store', 'staging'), staging=True)
+        custom_path = config.get('store', 'custom', fallback=None)
+        if custom_path is not None:
+            self._custom = FileStore(custom_path)
+        else:
+            self._custom = None
 
     @property
     def datasets(self):
         """Gets all the datasets in the store."""
 
-        return self._prod.datasets + self._staging.datasets
+        ds = self._prod.datasets + self._staging.datasets
+        if self._custom is not None:
+            ds += self._custom.datasets
+        return ds
 
     def get(self, dsid, download=True, staging=False):
         """Gets a single dataset.
@@ -42,6 +50,8 @@ class Store(object):
         ds = self._prod.get(dsid, download=False)
         if ds is None:
             ds = self._staging.get(dsid, download=False)
+        if ds is None and self._custom is not None:
+            ds = self._custom.get(dsid, download=False)
 
         # Not available locally, download?
         if ds is None and download:
@@ -76,6 +86,8 @@ class Store(object):
 
         self._staging.delete(dsids)
         self._prod.delete(dsids)
+        if self._custom is not None:
+            self._custom.delete(dsids)
 
 
 @click.group(name="store", invoke_without_command=True)
