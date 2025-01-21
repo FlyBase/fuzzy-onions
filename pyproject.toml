@@ -16,13 +16,14 @@ packages = [{include = "fbcam", from = "src"}]
 include = [{ path = "docs", format = "sdist" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.11"
 click-shell = ">=2.1"
 pandas = "*"
 ipython = "*"
 pyyaml = "*"
 psycopg2 = "*"
 pronto = "*"
+requests = "*"
 
 [tool.poetry.group.docs]
 optional = true
