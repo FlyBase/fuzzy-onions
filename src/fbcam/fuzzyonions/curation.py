@@ -1758,8 +1758,12 @@ def extract(ctx, specfile, output):
     default=False,
     help="Writes an uncommented header line.",
 )
+@click.option(
+    '--min-spread',
+    default=0.0,
+    help="Exclude rows with a spread lower than the indicated value.")
 @click.pass_obj
-def sumexpr(ctx, specfile, output, header):
+def sumexpr(ctx, specfile, output, header, min_spread):
     """Summarize expression data from a dataset.
 
     This command produces the Summarised Expression Table from a
@@ -1770,6 +1774,8 @@ def sumexpr(ctx, specfile, output, header):
 
     ds = ctx.dataset_from_specfile(specfile, with_reads=False)
     result = ds.summarise_expression()
+    if min_spread != 0:
+        result = result[result['spread'] > min_spread]
     if not header:
         # Write a commented header line (needed for harvdev processing)
         output.write('#genes\t')
