@@ -1095,6 +1095,7 @@ class Result(DatasetBase):
         self._title = title
         self._stage = stage
         self._protocol = protocol
+        self._fbcv = ['EMBL-EBI SCEA standard analysis method ; FBcv:0009058']
 
         self._desc = ""
         self._clusters = None
@@ -1526,6 +1527,7 @@ class ProformaWriter(object):
         self._write_field('LC14h', result.project.top_project.reference_genome)
         self._write_species(result.assay.sample)
         self._write_count(result)
+        self._write_field('LC11m', result.fbcv)
         self._write_field('LC11e', result.analysis_protocol)
         self._write_separator()
 
