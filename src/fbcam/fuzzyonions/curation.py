@@ -1544,10 +1544,10 @@ class ProformaWriter(object):
         self._write_count(cluster)
         self._write_separator()
 
-    def _write_tap(self, fbcv, sex, fbbt):
-        if sex is not None:
-            fbcv += ' | ' + sex
-        self._write_field('LC4g', f'<e><t>{fbcv}<a>{fbbt}<s><note>')
+    def _write_tap(self, fbdv, sex, fbbt):
+        if sex is not None and len(sex) > 0:
+            fbdv += ' | ' + sex
+        self._write_field('LC4g', f'<e><t>{fbdv}<a>{fbbt}<s><note>')
 
     def _write_entities(self, entities):
         for entity_ref, entity_type in entities:
