@@ -6,49 +6,13 @@
 # for the detailed conditions.
 
 import os.path
-import subprocess
 from shutil import copyfile
+import re
 
 import click
 from click_shell.core import make_click_shell
 from pandas import concat, read_csv, DataFrame
-
-
-grep_svm_script = """
-SVM_DIR=$1
-REGEX=$2
-
-find $SVM_DIR -type f | while read FILE ; do
-    BASENAME=${FILE##*/}
-    case "$BASENAME" in
-    FBrf*)
-        echo -e "$BASENAME\\t$FILE" >> $$.fulltext-by-fbrf
-        ;;
-    *)
-        echo -e "$BASENAME\\t$FILE" >> $$.fulltext-by-pmid
-    esac
-done
-
-for REF in $REFS ; do
-    FBRF=${REF%:*}
-    PMID=${REF#*:}
-    FULLTEXT_PATH=$(cat $$.fulltext-by-fbrf | grep ^$FBRF | cut -f2)
-    if [ -z "$FULLTEXT_PATH" ]; then
-        FULLTEXT_PATH=$(cat $$.fulltext-by-pmid | grep ^$PMID | cut -f2)
-    fi
-
-    if [ -z "$FULLTEXT_PATH" ]; then
-        echo -e "$FBRF\\tFull-text not available"
-    elif [ ! -f "$FULLTEXT_PATH" ]; then
-        echo -e "$FBRF\\tFull-text not available"
-    else
-        NMATCH=$(grep -i -c -E "$REGEX" $FULLTEXT_PATH)
-        echo -e "$FBRF\\t$NMATCH"
-    fi
-done
-
-rm $$.fulltext-by-{fbrf,pmid}
-"""
+import pymupdf
 
 
 class DiscoverContext(object):
@@ -57,6 +21,7 @@ class DiscoverContext(object):
     def __init__(self, config, database):
         self._config = config
         self._database = database
+        self._pattern = re.compile(self._config.get('textmining', 'pattern'), re.IGNORECASE)
 
     @property
     def flybase_table_file(self):
@@ -175,41 +140,45 @@ class DiscoverContext(object):
         """Search the full-texts archive for references to scRNAseq.
 
         :param references: a list of tuple (FBrf, PMID)
-        :return: a dictionary whose keys are FBrfs and values are numbers
-                 of references to scRNAseq
+        ::return: a dictionary whose keys are FBrfs and values are numbers
+                  of references to scRNAseq
         """
 
-        hostname = self._config.get('textmining', 'host')
-        directory = self._config.get('textmining', 'directory')
-        pattern = self._config.get('textmining', 'pattern')
-
-        script = (
-            'REFS="'
-            + ' '.join([f'{fbrf}:{pmid}' for fbrf, pmid in references])
-            + '"\n'
-            + grep_svm_script
-        )
-        command = f"bash -s {directory} '{pattern}'"
-        ssh = subprocess.Popen(
-            ['ssh', hostname, command],
-            shell=False,
-            text=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        output, _ = ssh.communicate(script)
-
         res = {}
-        for line in output.split('\n'):
-            line = line.strip()
-            if '\t' not in line:
-                continue
-            fbrf, nmatches = line.split('\t')
-            if nmatches == 'Full-text not available':
+        for fbrf, pmid in references:
+            pdf_file = self.get_fulltext_file(fbrf, pmid)
+            if not pdf_file:
                 res[fbrf] = -1
             else:
-                res[fbrf] = int(nmatches)
+                doc = pymupdf.open(pdf_file)
+                fulltext = "".join([p.get_text() for p in doc])
+                res[fbrf] = len(self._pattern.findall(fulltext))
         return res
+
+    def get_fulltext_file(self, fbrf, pmid):
+        """Get the full text of the given reference.
+
+        :param fbrf: FlyBase reference identifier
+        :param pmid: PubMed identifier
+        :return: the full path to the PDF file, or None if the full text
+                 is not available.
+        """
+
+        vm_base = self._config.get('textmining', 'vm_base')
+        # First look up in the main PDF archive folder
+        num = fbrf[4:7]
+        fullpath = os.path.join(vm_base, f'pdf/{num}0000-{num}9999/{fbrf}.pdf')
+        if os.path.exists(fullpath):
+            return fullpath
+        # Then look up in the staging area
+        fullpath = os.path.join(vm_base, f'staging/pdf/{fbrf}.pdf')
+        if os.path.exists(fullpath):
+            return fullpath
+        # Then look up in the PubGet folder
+        fullpath = os.path.join(vm_base, f'staging/pubget/{pmid}.pdf')
+        if os.path.exists(fullpath):
+            return fullpath
+        return None
 
 
 @click.group(invoke_without_command=True)

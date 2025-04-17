@@ -24,6 +24,7 @@ pyyaml = "*"
 psycopg2 = "*"
 pronto = "*"
 requests = "*"
+pymupdf = "*"
 
 [tool.poetry.group.docs]
 optional = true
