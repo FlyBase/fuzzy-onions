@@ -224,6 +224,68 @@ def discover(ctx):
         shell.cmdloop()
 
 
+def findnew_impl(obj, table, fbrfs):
+    """Update the given table with data for the specified references.
+
+    This is the core of the findnew/checknew commands.
+    """
+
+    if table is None:
+        table = DataFrame(
+            columns=[
+                'FBrf',
+                'PMID',
+                'Citation',
+                'Accessions',
+                'Mentions',
+                'Confirmed',
+                'Organ/tissue',
+                'Comments',
+            ],
+            dtype=str,
+        )
+
+    click.echo("Fetching additional data...")
+    newrows = []
+    with click.progressbar(fbrfs) as bar:
+        for fbrf in bar:
+            if fbrf in table['FBrf'].values:
+                continue
+
+            pmid = obj.get_pmid_for_fbrf(fbrf)
+            accessions = obj.get_dataset_accessions_for_fbrf(fbrf)
+            citation = obj.get_citation_for_fbrf(fbrf)
+            newrows.append(
+                {
+                    'FBrf': fbrf,
+                    'PMID': pmid,
+                    'Citation': citation,
+                    'Accessions': accessions,
+                }
+            )
+
+    click.echo(f"New dataset-flagged references: {len(newrows)}")
+    if len(newrows) > 0:
+        table = concat([table, DataFrame(data=newrows)])
+
+        click.echo("Querying the fulltext archive...")
+        queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
+        mentions = obj.grep_fulltexts(queries)
+        pos = 0
+        nas = 0
+        for fbrf, nmatch in mentions.items():
+            if nmatch > 0:
+                pos += 1
+            elif nmatch == -1:
+                nas += 1
+                nmatch = 'Full-text not available'
+            table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
+        click.echo(f"References matching the scRNAseq pattern: {pos}")
+        click.echo(f"References without full text: {nas}")
+
+    return len(newrows), table
+
+
 @discover.command()
 @click.option(
     '--filename',
@@ -248,70 +310,39 @@ def findnew(obj, filename, output):
     if filename is None:
         filename = obj.flybase_table_file
 
-    if not os.path.exists(filename):
-        table = DataFrame(
-            columns=[
-                'FBrf',
-                'PMID',
-                'Citation',
-                'Accessions',
-                'Mentions',
-                'Confirmed',
-                'Organ/tissue',
-                'Comments',
-            ],
-            dtype=str,
-        )
-    else:
+    table = None
+    if os.path.exists(filename):
         table = read_csv(filename, sep='\t', dtype=str)
 
     click.echo("Fetching dataset-flagged references...")
-    fbrfs = obj.get_dataset_fbrfs()
+    fbrfs = [f[0] for f in obj.get_dataset_fbrfs()]
 
-    click.echo("Fetching additional data...")
-    newrows = []
-    with click.progressbar(fbrfs) as bar:
-        for (fbrf,) in bar:
-            if fbrf in table['FBrf'].values:
-                continue
+    n, table = findnew_impl(obj, table, fbrfs)
+    if n > 0:
+        if output is None:
+            output = filename
+            copyfile(output, f'{output}.bak')
+        table.to_csv(output, index=False, sep='\t')
 
-            pmid = obj.get_pmid_for_fbrf(fbrf)
-            accessions = obj.get_dataset_accessions_for_fbrf(fbrf)
-            citation = obj.get_citation_for_fbrf(fbrf)
-            newrows.append(
-                {
-                    'FBrf': fbrf,
-                    'PMID': pmid,
-                    'Citation': citation,
-                    'Accessions': accessions,
-                }
-            )
 
-    click.echo(f"New dataset-flagged references: {len(newrows)}")
-    if len(newrows) == 0:
-        return
+@discover.command()
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    metavar='FILENAME',
+    help="""Write the result to the specified file.
+            The default is to write to standard output."""
+)
+@click.argument('fbrfs', nargs=-1)
+@click.pass_obj
+def checknew(obj, output, fbrfs):
+    """Check whether the provided references may be about scRNAseq."""
 
-    table = concat([table, DataFrame(data=newrows)])
-
-    click.echo("Querying the fulltext archive...")
-    queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
-    mentions = obj.grep_fulltexts(queries)
-    pos = 0
-    nas = 0
-    for fbrf, nmatch in mentions.items():
-        if nmatch > 0:
-            pos += 1
-        elif nmatch == -1:
-            nas += 1
-            nmatch = 'Full-text not available'
-        table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
-    click.echo(f"References matching the scRNAseq pattern: {pos}")
-    click.echo(f"References without full text: {nas}")
-
-    if output is None:
-        output = filename
-        copyfile(output, f'{output}.bak')
-    table.to_csv(output, index=False, sep='\t')
+    n, table = findnew_impl(obj, None, fbrfs)
+    if n > 0:
+        table.to_csv(output, index=False, sep='\t')
 
 
 @discover.command()
