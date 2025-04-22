@@ -13,6 +13,8 @@ import click
 from click_shell.core import make_click_shell
 from pandas import concat, read_csv, DataFrame
 import pymupdf
+import llm
+import logging
 
 
 class DiscoverContext(object):
@@ -22,6 +24,7 @@ class DiscoverContext(object):
         self._config = config
         self._database = database
         self._pattern = re.compile(self._config.get('textmining', 'pattern'), re.IGNORECASE)
+        self._model = None
 
     @property
     def flybase_table_file(self):
@@ -40,6 +43,15 @@ class DiscoverContext(object):
     @property
     def cursor(self):
         return self._database.cursor
+
+    @property
+    def model(self):
+        if not self._model:
+            self._model = llm.get_model('gpt-4o-mini')
+            self._model.key = self._config.get('textmining', 'openai_key')
+            logging.getLogger("openai").setLevel(logging.ERROR)
+            logging.getLogger("httpx").setLevel(logging.ERROR)
+        return self._model
 
     def filter_out_known_datasets(self, pmids):
         table = read_csv(self.scea_dataset_file, dtype=str)
@@ -136,7 +148,7 @@ class DiscoverContext(object):
         else:
             return f'{res[0][0]} et al., {year}'
 
-    def is_about_new_dataset(self, fbrf, pmid):
+    def is_about_new_dataset(self, fbrf, pmid, use_llm=False):
         """Attempt to determine whether the given reference describes a
         new dataset.
 
@@ -152,7 +164,22 @@ class DiscoverContext(object):
         if pdf_file:
             doc = pymupdf.open(pdf_file)
             fulltext = "".join([p.get_text() for p in doc])
-            res['grep'] = len(self._pattern.findall(fulltext))
+            nmatch = len(self._pattern.findall(fulltext))
+            res['grep'] = nmatch
+
+            if use_llm and nmatch > 0:
+                prompt = """
+                    Can you tell whether, in the following text of a
+                    scientific paper, the authors are describing
+                    (possibly among other things) a new single-cell
+                    RNA-sequencing dataset, or merely referencing a
+                    dataset that has been published previously? If
+                    they describe a new dataset, can you identify the
+                    scRNAseq technology used (e.g. Chromium 10x)?
+                    Answer with a simple, short sentence.
+                    """
+                response = self.model.prompt(prompt, fragments=[fulltext])
+                res['llm'] = response.text()
         return res
 
     def get_fulltext_file(self, fbrf, pmid):
@@ -193,7 +220,7 @@ def discover(ctx):
         shell.cmdloop()
 
 
-def findnew_impl(obj, table, fbrfs):
+def findnew_impl(obj, table, fbrfs, use_llm=False):
     """Update the given table with data for the specified references.
 
     This is the core of the findnew/checknew commands.
@@ -240,7 +267,7 @@ def findnew_impl(obj, table, fbrfs):
         nas = 0
         with click.progressbar(newrows) as bar:
             for row in bar:
-                res = obj.is_about_new_dataset(row['FBrf'], row['PMID'])
+                res = obj.is_about_new_dataset(row['FBrf'], row['PMID'], use_llm)
                 nmatch = res.get('grep')
                 if nmatch is None:
                     nas += 1
@@ -248,6 +275,8 @@ def findnew_impl(obj, table, fbrfs):
                 elif nmatch > 0:
                     pos += 1
                 row['Mentions'] = nmatch
+                if 'llm' in res:
+                    row['Comments'] = res.get('llm')
 
         table = concat([table, DataFrame(data=newrows)])
         click.echo(f"References matching the scRNAseq pattern: {pos}")
@@ -273,8 +302,13 @@ def findnew_impl(obj, table, fbrfs):
     help="""Write the updated table to the specified file.
             The default is to write to the original file.""",
 )
+@click.option('--use-llm',
+    is_flag=True,
+    default=False,
+    help="""Use a LLM to try determinining whether a reference
+            is about a new dataset""")
 @click.pass_obj
-def findnew(obj, filename, output):
+def findnew(obj, filename, output, use_llm):
     """Find new FlyBase references that may be about scRNAseq."""
 
     if filename is None:
@@ -287,7 +321,7 @@ def findnew(obj, filename, output):
     click.echo("Fetching dataset-flagged references...")
     fbrfs = [f[0] for f in obj.get_dataset_fbrfs()]
 
-    n, table = findnew_impl(obj, table, fbrfs)
+    n, table = findnew_impl(obj, table, fbrfs, use_llm=use_llm)
     if n > 0:
         if output is None:
             output = filename
@@ -306,11 +340,16 @@ def findnew(obj, filename, output):
             The default is to write to standard output."""
 )
 @click.argument('fbrfs', nargs=-1)
+@click.option('--use-llm',
+    is_flag=True,
+    default=False,
+    help="""Use a LLM to try determinining whether a reference
+            is about a new dataset""")
 @click.pass_obj
-def checknew(obj, output, fbrfs):
+def checknew(obj, output, fbrfs, use_llm):
     """Check whether the provided references may be about scRNAseq."""
 
-    n, table = findnew_impl(obj, None, fbrfs)
+    n, table = findnew_impl(obj, None, fbrfs, use_llm=use_llm)
     if n > 0:
         table.to_csv(output, index=False, sep='\t')
 
