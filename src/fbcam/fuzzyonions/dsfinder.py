@@ -136,23 +136,23 @@ class DiscoverContext(object):
         else:
             return f'{res[0][0]} et al., {year}'
 
-    def grep_fulltexts(self, references):
-        """Search the full-texts archive for references to scRNAseq.
+    def is_about_new_dataset(self, fbrf, pmid):
+        """Attempt to determine whether the given reference describes a
+        new dataset.
 
-        :param references: a list of tuple (FBrf, PMID)
-        ::return: a dictionary whose keys are FBrfs and values are numbers
-                  of references to scRNAseq
+        :param fbrf: FlyBase reference identifier
+        :param pmid: PubMed identifier
+        :return: a dictionary where the key represents the method used
+                 to test the reference, and the value is the result;
+                 empty if the full text of the reference is not
+                 available.
         """
-
+        pdf_file = self.get_fulltext_file(fbrf, pmid)
         res = {}
-        for fbrf, pmid in references:
-            pdf_file = self.get_fulltext_file(fbrf, pmid)
-            if not pdf_file:
-                res[fbrf] = -1
-            else:
-                doc = pymupdf.open(pdf_file)
-                fulltext = "".join([p.get_text() for p in doc])
-                res[fbrf] = len(self._pattern.findall(fulltext))
+        if pdf_file:
+            doc = pymupdf.open(pdf_file)
+            fulltext = "".join([p.get_text() for p in doc])
+            res['grep'] = len(self._pattern.findall(fulltext))
         return res
 
     def get_fulltext_file(self, fbrf, pmid):
@@ -235,20 +235,21 @@ def findnew_impl(obj, table, fbrfs):
 
     click.echo(f"New dataset-flagged references: {len(newrows)}")
     if len(newrows) > 0:
-        table = concat([table, DataFrame(data=newrows)])
-
         click.echo("Querying the fulltext archive...")
-        queries = table.loc[table['Mentions'].isna(), ['FBrf', 'PMID']].values
-        mentions = obj.grep_fulltexts(queries)
         pos = 0
         nas = 0
-        for fbrf, nmatch in mentions.items():
-            if nmatch > 0:
-                pos += 1
-            elif nmatch == -1:
-                nas += 1
-                nmatch = 'Full-text not available'
-            table.loc[table['FBrf'] == fbrf, 'Mentions'] = nmatch
+        with click.progressbar(newrows) as bar:
+            for row in bar:
+                res = obj.is_about_new_dataset(row['FBrf'], row['PMID'])
+                nmatch = res.get('grep')
+                if nmatch is None:
+                    nas += 1
+                    nmatch = 'Full-text not available'
+                elif nmatch > 0:
+                    pos += 1
+                row['Mentions'] = nmatch
+
+        table = concat([table, DataFrame(data=newrows)])
         click.echo(f"References matching the scRNAseq pattern: {pos}")
         click.echo(f"References without full text: {nas}")
 
