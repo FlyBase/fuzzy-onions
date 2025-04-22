@@ -15,6 +15,7 @@ from pandas import concat, read_csv, DataFrame
 import pymupdf
 import llm
 import logging
+import openai
 
 
 class DiscoverContext(object):
@@ -159,11 +160,17 @@ class DiscoverContext(object):
                  empty if the full text of the reference is not
                  available.
         """
-        pdf_file = self.get_fulltext_file(fbrf, pmid)
+        fulltext = None
         res = {}
+        pdf_file = self.get_fulltext_file(fbrf, pmid)
         if pdf_file:
-            doc = pymupdf.open(pdf_file)
-            fulltext = "".join([p.get_text() for p in doc])
+            try:
+                doc = pymupdf.open(pdf_file)
+                fulltext = "".join([p.get_text() for p in doc])
+            except:
+                pass
+
+        if fulltext:
             nmatch = len(self._pattern.findall(fulltext))
             res['grep'] = nmatch
 
@@ -178,8 +185,11 @@ class DiscoverContext(object):
                     scRNAseq technology used (e.g. Chromium 10x)?
                     Answer with a simple, short sentence.
                     """
-                response = self.model.prompt(prompt, fragments=[fulltext])
-                res['llm'] = response.text()
+                try:
+                    response = self.model.prompt(prompt, fragments=[fulltext])
+                    res['llm'] = response.text()
+                except openai.BadRequestError:
+                    pass
         return res
 
     def get_fulltext_file(self, fbrf, pmid):
