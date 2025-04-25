@@ -12,6 +12,7 @@ import re
 import click
 from click_shell.core import make_click_shell
 from pandas import concat, read_csv, DataFrame
+import numpy
 import pymupdf
 import llm
 import logging
@@ -218,6 +219,77 @@ class DiscoverContext(object):
         return None
 
 
+class ResultsTable(object):
+    """A class to encapsulate the results of a discovery operation."""
+
+    def __init__(self, filename):
+        self._filename = filename
+        if os.path.exists(self._filename):
+            self._table = read_csv(filename, sep='\t', dtype=str)
+        else:
+            self._table = DataFrame(
+                columns=[
+                    'FBrf',
+                    'PMID',
+                    'Citation',
+                    'Accessions',
+                    'Mentions',
+                    'Confirmed',
+                    'Organ/tissue',
+                    'Comments'
+                ]
+            )
+
+    def save(self, filename=None):
+        if filename is None:
+            filename = self._filename
+            copyfile(filename, f'{filename}.bak')
+        self._table.to_csv(filename, index=False, sep='\t')
+
+    def add_new_references(self, fbrfs):
+        new_rows = []
+        for fbrf in fbrfs:
+            if fbrf not in self._table['FBrf'].values:
+                new_rows.append({'FBrf': fbrf})
+        self._table = concat(self._table, DataFrame(data=new_rows))
+        return len(new_rows)
+
+    def fill_missing(self, ctx):
+        incompletes = self._table[self._table['Citation'].isna()]['FBrf'].values
+        with click.progressbar(incompletes) as bar:
+            for fbrf in bar:
+                pmid = ctx.get_pmid_for_fbrf(fbrf)
+                accessions = ctx.get_dataset_accessions_for_fbrf(fbrf)
+                citation = ctx.get_citation_for_fbrf(fbrf)
+
+                mask = self._table['FBrf'] == fbrf
+                self._table.loc[mask, 'PMID'] = pmid
+                self._table.loc[mask, 'Citation'] = citation
+                self._table.loc[mask, 'Accessions'] = accessions
+        return len(incompletes)
+
+    def fill_relevance(self, ctx, use_llm=False):
+        candidates = self._table.loc[self._table['Mentions'].isna(), ('FBrf', 'PMID')].values
+        pos = 0
+        nofulltext = 0
+        with click.progressbar(candidates) as bar:
+            for fbrf, pmid in bar:
+                res = ctx.is_about_new_dataset(fbrf, pmid, use_llm)
+                nmatch = res.get('grep')
+                if nmatch is None:
+                    nofulltext += 1
+                    nmatch = 'Full-text not available'
+                elif nmatch > 0:
+                    pos += 1
+                self._table.loc[self._table['FBrf'] == fbrf, 'Mentions'] = nmatch
+                if 'llm' in res:
+                    self._table.loc[self._table['FBrf'] == fbrf, 'Comments'] = res.get('llm')
+        return (pos, nofulltext)
+
+    def clear_relevance_data(self):
+        self._table.loc[:,'Mentions'] = numpy.nan
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 def discover(ctx):
@@ -228,71 +300,6 @@ def discover(ctx):
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-discover> ")
         shell.cmdloop()
-
-
-def findnew_impl(obj, table, fbrfs, use_llm=False):
-    """Update the given table with data for the specified references.
-
-    This is the core of the findnew/checknew commands.
-    """
-
-    if table is None:
-        table = DataFrame(
-            columns=[
-                'FBrf',
-                'PMID',
-                'Citation',
-                'Accessions',
-                'Mentions',
-                'Confirmed',
-                'Organ/tissue',
-                'Comments',
-            ],
-            dtype=str,
-        )
-
-    click.echo("Fetching additional data...")
-    newrows = []
-    with click.progressbar(fbrfs) as bar:
-        for fbrf in bar:
-            if fbrf in table['FBrf'].values:
-                continue
-
-            pmid = obj.get_pmid_for_fbrf(fbrf)
-            accessions = obj.get_dataset_accessions_for_fbrf(fbrf)
-            citation = obj.get_citation_for_fbrf(fbrf)
-            newrows.append(
-                {
-                    'FBrf': fbrf,
-                    'PMID': pmid,
-                    'Citation': citation,
-                    'Accessions': accessions,
-                }
-            )
-
-    click.echo(f"New dataset-flagged references: {len(newrows)}")
-    if len(newrows) > 0:
-        click.echo("Querying the fulltext archive...")
-        pos = 0
-        nas = 0
-        with click.progressbar(newrows) as bar:
-            for row in bar:
-                res = obj.is_about_new_dataset(row['FBrf'], row['PMID'], use_llm)
-                nmatch = res.get('grep')
-                if nmatch is None:
-                    nas += 1
-                    nmatch = 'Full-text not available'
-                elif nmatch > 0:
-                    pos += 1
-                row['Mentions'] = nmatch
-                if 'llm' in res:
-                    row['Comments'] = res.get('llm')
-
-        table = concat([table, DataFrame(data=newrows)])
-        click.echo(f"References matching the scRNAseq pattern: {pos}")
-        click.echo(f"References without full text: {nas}")
-
-    return len(newrows), table
 
 
 @discover.command()
@@ -323,23 +330,27 @@ def findnew(obj, filename, output, use_llm):
 
     if filename is None:
         filename = obj.flybase_table_file
-
-    table = None
-    if os.path.exists(filename):
-        table = read_csv(filename, sep='\t', dtype=str)
+    table = ResultsTable(filename)
 
     click.echo("Fetching dataset-flagged references...")
-    fbrfs = [f[0] for f in obj.get_dataset_fbrfs()]
+    n = table.add_new_references([f[0] for f in obj.get_dataset_fbrfs()])
+    if n == 0:
+        return
 
-    n, table = findnew_impl(obj, table, fbrfs, use_llm=use_llm)
-    if n > 0:
-        if output is None:
-            output = filename
-            copyfile(output, f'{output}.bak')
-        table.to_csv(output, index=False, sep='\t')
+    click.echo(f"New dataset-flagged references: {n}")
+    click.echo("Fetching additional data...")
+    table.fill_missing(obj)
+
+    click.echo("Checking for scRNAseq relevance...")
+    n, nofulltext = table.fill_relevance(obj, use_llm=use_llm)
+    click.echo(f"Number of potentially relevant references: {n}")
+    click.echo(f"Number of references without full text: {nofulltext}")
+
+    table.save(output)
 
 
 @discover.command()
+@click.argument('filename')
 @click.option(
     '--output',
     '-o',
@@ -349,19 +360,34 @@ def findnew(obj, filename, output, use_llm):
     help="""Write the result to the specified file.
             The default is to write to standard output."""
 )
-@click.argument('fbrfs', nargs=-1)
+@click.option('--force',
+    is_flag=True,
+    default=False,
+    help="""Ignore previous relevance results.""")
 @click.option('--use-llm',
     is_flag=True,
     default=False,
     help="""Use a LLM to try determinining whether a reference
             is about a new dataset""")
 @click.pass_obj
-def checknew(obj, output, fbrfs, use_llm):
+def checknew(obj, filename, output, force, use_llm):
     """Check whether the provided references may be about scRNAseq."""
 
-    n, table = findnew_impl(obj, None, fbrfs, use_llm=use_llm)
+    table = ResultsTable(filename)
+
+    click.echo("Fetching additional data..")
+    n = table.fill_missing(obj)
     if n > 0:
-        table.to_csv(output, index=False, sep='\t')
+        click.echo(f"Updated data for {n} references")
+
+    if force:
+        table.clear_relevance_data()
+    click.echo("Checking for scRNAseq relevance...")
+    n, nofulltext = table.fill_relevance(obj, use_llm)
+    click.echo(f"Number of potentially relevant references: {n}")
+    click.echo(f"Number of references without full text: {nofulltext}")
+
+    table.save(output)
 
 
 @discover.command()
