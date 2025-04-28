@@ -1764,8 +1764,12 @@ def extract(ctx, specfile, output):
     '--min-spread',
     default=0.0,
     help="Exclude rows with a spread lower than the indicated value.")
+@click.option(
+    '--proforma',
+    type=click.File('r'),
+    help="Check clusters against the specified proforma.")
 @click.pass_obj
-def sumexpr(ctx, specfile, output, header, min_spread):
+def sumexpr(ctx, specfile, output, header, min_spread, proforma):
     """Summarize expression data from a dataset.
 
     This command produces the Summarised Expression Table from a
@@ -1778,6 +1782,19 @@ def sumexpr(ctx, specfile, output, header, min_spread):
     result = ds.summarise_expression()
     if min_spread != 0:
         result = result[result['spread'] > min_spread]
+
+    if proforma is not None:
+        clusters = {}
+        for line in proforma:
+            if not line.startswith('! LC1a.'):
+                continue
+            symbol = line.split(':')[1].strip()
+            if symbol.find("_seq_clustering_") > 0:
+                clusters[symbol] = 1
+        proforma.close()
+        for cluster in [c for c in result['sample'].unique() if c not in clusters]:
+            logging.warn(f"Unknown cluster: {cluster}")
+
     if not header:
         # Write a commented header line (needed for harvdev processing)
         output.write('#genes\t')
