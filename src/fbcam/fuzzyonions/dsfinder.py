@@ -49,8 +49,8 @@ class DiscoverContext(object):
     @property
     def model(self):
         if not self._model:
-            self._model = llm.get_model('gpt-4o-mini')
-            self._model.key = self._config.get('textmining', 'openai_key')
+            self._model = llm.get_model(self._config.get('textmining', 'llm_model', fallback='gpt-4o-mini'))
+            self._model.key = self._config.get('textmining', 'llm_api_key')
             logging.getLogger("openai").setLevel(logging.ERROR)
             logging.getLogger("httpx").setLevel(logging.ERROR)
         return self._model
