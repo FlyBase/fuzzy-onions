@@ -7,15 +7,15 @@
 
 """Helper module to deal with SCEA datasets."""
 
-from enum import IntFlag
+import json
 import logging
 import os
-import json
 from datetime import datetime
-from zipfile import ZipFile, BadZipFile
+from enum import IntFlag
+from zipfile import BadZipFile, ZipFile
 
-import requests
 import pandas
+import requests
 
 from fbcam.fuzzyonions.matrixmarket import MatrixMarketFile
 

@@ -5,11 +5,11 @@
 # the terms of the MIT license. See the LICENSE.md file in that project
 # for the detailed conditions.
 
+import json
 from datetime import datetime
 from enum import Enum
 from os.path import exists
 from shutil import copyfile
-import json
 
 import click
 from click_shell import make_click_shell

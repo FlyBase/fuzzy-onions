@@ -6,22 +6,22 @@
 # for the detailed conditions.
 
 import logging
+from configparser import ConfigParser
 from os import getenv
 from os.path import exists
-from configparser import ConfigParser
 
 import click
 from click_shell import shell
 from IPython import embed
 
 from fbcam.fuzzyonions import __version__
-from fbcam.fuzzyonions.explorer import explorer
+from fbcam.fuzzyonions.annotations import annots
 from fbcam.fuzzyonions.curation import curate
-from fbcam.fuzzyonions.store import store, Store
-from fbcam.fuzzyonions.tracker import tracker, DatasetTracker
 from fbcam.fuzzyonions.database import DatabaseHelper
 from fbcam.fuzzyonions.dsfinder import discover
-from fbcam.fuzzyonions.annotations import annots
+from fbcam.fuzzyonions.explorer import explorer
+from fbcam.fuzzyonions.store import Store, store
+from fbcam.fuzzyonions.tracker import DatasetTracker, tracker
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\

@@ -6,12 +6,13 @@
 # for the detailed conditions.
 
 import json
-import yaml
 import logging
-import pandas
-import click
-from click_shell.core import make_click_shell
 from pathlib import Path
+
+import click
+import pandas
+import yaml
+from click_shell.core import make_click_shell
 
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder, ProformaType
 
@@ -1763,11 +1764,13 @@ def extract(ctx, specfile, output):
 @click.option(
     '--min-spread',
     default=0.0,
-    help="Exclude rows with a spread lower than the indicated value.")
+    help="Exclude rows with a spread lower than the indicated value.",
+)
 @click.option(
     '--proforma',
     type=click.File('r'),
-    help="Check clusters against the specified proforma.")
+    help="Check clusters against the specified proforma.",
+)
 @click.pass_obj
 def sumexpr(ctx, specfile, output, header, min_spread, proforma):
     """Summarize expression data from a dataset.

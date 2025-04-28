@@ -5,18 +5,18 @@
 # the terms of the MIT license. See the LICENSE.md file in that project
 # for the detailed conditions.
 
+import logging
 import os.path
-from shutil import copyfile
 import re
+from shutil import copyfile
 
 import click
-from click_shell.core import make_click_shell
-from pandas import concat, read_csv, DataFrame
-import numpy
-import pymupdf
 import llm
-import logging
+import numpy
 import openai
+import pymupdf
+from click_shell.core import make_click_shell
+from pandas import DataFrame, concat, read_csv
 
 
 class DiscoverContext(object):
@@ -25,7 +25,9 @@ class DiscoverContext(object):
     def __init__(self, config, database):
         self._config = config
         self._database = database
-        self._pattern = re.compile(self._config.get('textmining', 'pattern'), re.IGNORECASE)
+        self._pattern = re.compile(
+            self._config.get('textmining', 'pattern'), re.IGNORECASE
+        )
         self._model = None
 
     @property
@@ -49,7 +51,9 @@ class DiscoverContext(object):
     @property
     def model(self):
         if not self._model:
-            self._model = llm.get_model(self._config.get('textmining', 'llm_model', fallback='gpt-4o-mini'))
+            self._model = llm.get_model(
+                self._config.get('textmining', 'llm_model', fallback='gpt-4o-mini')
+            )
             self._model.key = self._config.get('textmining', 'llm_api_key')
             logging.getLogger("openai").setLevel(logging.ERROR)
             logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -236,7 +240,7 @@ class ResultsTable(object):
                     'Mentions',
                     'Confirmed',
                     'Organ/tissue',
-                    'Comments'
+                    'Comments',
                 ]
             )
 
@@ -269,7 +273,9 @@ class ResultsTable(object):
         return len(incompletes)
 
     def fill_relevance(self, ctx, use_llm=False):
-        candidates = self._table.loc[self._table['Mentions'].isna(), ('FBrf', 'PMID')].values
+        candidates = self._table.loc[
+            self._table['Mentions'].isna(), ('FBrf', 'PMID')
+        ].values
         pos = 0
         nofulltext = 0
         with click.progressbar(candidates) as bar:
@@ -283,11 +289,13 @@ class ResultsTable(object):
                     pos += 1
                 self._table.loc[self._table['FBrf'] == fbrf, 'Mentions'] = nmatch
                 if 'llm' in res:
-                    self._table.loc[self._table['FBrf'] == fbrf, 'Comments'] = res.get('llm')
+                    self._table.loc[self._table['FBrf'] == fbrf, 'Comments'] = res.get(
+                        'llm'
+                    )
         return (pos, nofulltext)
 
     def clear_relevance_data(self):
-        self._table.loc[:,'Mentions'] = numpy.nan
+        self._table.loc[:, 'Mentions'] = numpy.nan
 
 
 @click.group(invoke_without_command=True)
@@ -319,11 +327,13 @@ def discover(ctx):
     help="""Write the updated table to the specified file.
             The default is to write to the original file.""",
 )
-@click.option('--use-llm',
+@click.option(
+    '--use-llm',
     is_flag=True,
     default=False,
     help="""Use a LLM to try determinining whether a reference
-            is about a new dataset""")
+            is about a new dataset""",
+)
 @click.pass_obj
 def findnew(obj, filename, output, use_llm):
     """Find new FlyBase references that may be about scRNAseq."""
@@ -358,17 +368,21 @@ def findnew(obj, filename, output, use_llm):
     default='-',
     metavar='FILENAME',
     help="""Write the result to the specified file.
-            The default is to write to standard output."""
+            The default is to write to standard output.""",
 )
-@click.option('--force',
+@click.option(
+    '--force',
     is_flag=True,
     default=False,
-    help="""Ignore previous relevance results.""")
-@click.option('--use-llm',
+    help="""Ignore previous relevance results.""",
+)
+@click.option(
+    '--use-llm',
     is_flag=True,
     default=False,
     help="""Use a LLM to try determinining whether a reference
-            is about a new dataset""")
+            is about a new dataset""",
+)
 @click.pass_obj
 def checknew(obj, filename, output, force, use_llm):
     """Check whether the provided references may be about scRNAseq."""

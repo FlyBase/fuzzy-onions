@@ -6,11 +6,12 @@
 # for the detailed conditions.
 
 import os.path
+from shutil import copyfile
+
 import click
 from click_shell.core import make_click_shell
+from pandas import DataFrame, read_csv
 from pronto import Ontology
-from pandas import read_csv, DataFrame
-from shutil import copyfile
 
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
