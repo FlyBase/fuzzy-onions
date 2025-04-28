@@ -251,7 +251,7 @@ class ResultsTable(object):
         for fbrf in fbrfs:
             if fbrf not in self._table['FBrf'].values:
                 new_rows.append({'FBrf': fbrf})
-        self._table = concat(self._table, DataFrame(data=new_rows))
+        self._table = concat([self._table, DataFrame(data=new_rows)])
         return len(new_rows)
 
     def fill_missing(self, ctx):
