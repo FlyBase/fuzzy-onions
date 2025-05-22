@@ -1610,11 +1610,15 @@ class CurationContext(object):
         :return: a :class:`Project` object
         """
 
+        specpath = Path(specfile)
         spec = self.load_spec_file(specfile)
         self.expand_defaults(spec)
         dataset = Project(spec, self._min_cluster)
 
         for source in spec['sources']:
+            sourcepath = Path(source)
+            if not sourcepath.is_absolute():
+                source = str(specpath.parent.joinpath(source))
             s = self.source_dataset_from_specfile(source)
             s.apply_corrections()
             dataset.sources.append(s)
