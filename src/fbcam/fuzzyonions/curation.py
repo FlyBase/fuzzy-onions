@@ -15,6 +15,7 @@ import yaml
 from click_shell.core import make_click_shell
 
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder, ProformaType
+from fbcam.fuzzyonions.export import DictDatasetExporter
 
 
 class SourceDataset(object):
@@ -1559,11 +1560,14 @@ class ProformaWriter(object):
 class CurationContext(object):
     """A helper object for all curation operations."""
 
-    def __init__(self, config, store, no_exclude, min_cluster_size, with_reads):
+    def __init__(
+        self, config, store, database, no_exclude, min_cluster_size, with_reads
+    ):
         """Create a new instance.
 
         :param config: the main configuration object
         :param store: the dataset local file store
+        :param database: the CHADO connection
         :param no_exclude: do not exclude any cell type if True
         :param min_cluster_size: exclude any cluster containing less
             than the specified number of cells
@@ -1572,6 +1576,7 @@ class CurationContext(object):
         """
 
         self._store = store
+        self._db = database
         self._no_exclude = no_exclude
         self._min_cluster = min_cluster_size
         self._with_reads = with_reads
@@ -1698,7 +1703,12 @@ def curate(ctx, no_exclude, min_cluster_size, with_reads):
     """Access the curation commands."""
 
     ctx.obj = CurationContext(
-        ctx.obj.config, ctx.obj.raw_store, no_exclude, min_cluster_size, with_reads
+        ctx.obj.config,
+        ctx.obj.raw_store,
+        ctx.obj.database,
+        no_exclude,
+        min_cluster_size,
+        with_reads,
     )
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-curate> ")
@@ -1906,3 +1916,31 @@ def genclusters(ctx, specfile, outdir):
             with fname.open(mode='w') as fd:
                 fd.write('\n'.join(cluster.get_cell_ids(with_source_dataset=True)))
                 fd.write('\n')
+
+
+@curate.command()
+@click.argument('specfiles', type=click.Path(exists=True), nargs=-1)
+@click.option(
+    '--outfile',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
+@click.pass_obj
+def export_json(ctx, specfiles, outfile):
+    """Export dataset metadata as a JSON file.
+
+    This command creates a simplified view of datasets metadata in a
+    JSON file. It is intended for long-term export and eventual reuse
+    by the Alliance.
+    """
+
+    exporter = DictDatasetExporter(ctx._db)
+
+    datasets = []
+    for specfile in specfiles:
+        ds = ctx.dataset_from_specfile(specfile)
+        datasets.append(exporter.export(ds))
+
+    json.dump(datasets, outfile, indent=4)
