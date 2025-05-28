@@ -1245,6 +1245,7 @@ class Cluster(DatasetBase):
         self._result = result
         self._sample = sample
         self._simple_ct = None
+        self._plural_ct = None
         self._stage = stage
         self._sex = sex
         self._desc = ""
@@ -1253,7 +1254,7 @@ class Cluster(DatasetBase):
 
     @property
     def title(self):
-        return f'{self.result.title}, {self.simplified_cell_type}s cluster'
+        return f'{self.result.title}, {self.plural_name} cluster'
 
     @property
     def entity_type(self):
@@ -1295,7 +1296,7 @@ class Cluster(DatasetBase):
 
     @property
     def symbol(self):
-        sct = self.simplified_cell_type
+        sct = self.plural_name
         rules = [
             (' ', '_'),
             ('/', '_'),
@@ -1303,7 +1304,7 @@ class Cluster(DatasetBase):
         ]
         for rule in rules:
             sct = sct.replace(rule[0], rule[1])
-        return f'{self.result.symbol}_{sct}s'
+        return f'{self.result.symbol}_{sct}'
 
     @property
     def simplified_cell_type(self):
@@ -1330,6 +1331,18 @@ class Cluster(DatasetBase):
                 sct = sct.replace(rule[0], rule[1])
             self._simple_ct = sct
         return self._simple_ct
+
+    @property
+    def plural_name(self):
+        """A pural form of the cell type name."""
+
+        if self._plural_ct is None:
+            name = self.simplified_cell_type
+            if name.endswith('nucleus'):
+                self._plural_ct = name.replace('nucleus', 'nuclei')
+            else:
+                self._plural_ct = name + 's'
+        return self._plural_ct
 
     @property
     def developmental_stage(self):
