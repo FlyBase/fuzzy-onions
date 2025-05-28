@@ -48,7 +48,7 @@ class DictDatasetExporter(object):
         d = {}
         self._fill_id_slots(dataset, d)
         d['reference'] = dataset.reference.fbrf
-        d['study_type'] = [self._export_fbcv(t) for t in dataset.fbcv]
+        d['study_cvterms'] = [self._export_fbcv(t) for t in dataset.fbcv]
         if dataset.lab:
             d['creator'] = {'name': dataset.lab.name, 'url': dataset.lab.url}
         d['accessions'] = [s.full_accession for s in dataset.sources]
@@ -121,15 +121,21 @@ class DictDatasetExporter(object):
         d['tissue'] = self._export_fbbt(sample.anatomical_part)
         d['stage'] = self._export_fbdv(sample.developmental_stage)
         self._add(d, 'sex', sample.sex)
-        self._add(d, 'technical_reference', sample.assay.technical_reference)
-        self._add(d, 'biological_reference', sample.assay.biological_reference)
+        if sample.assay.technical_reference:
+            d['technical_reference'] = self._get_dataset_id(
+                sample.assay.technical_reference
+            )
+        if sample.assay.biological_reference:
+            d['biological_reference'] = self._get_dataset_id(
+                sample.assay.biological_reference
+            )
         if sample.entities:
             entities = []
             for entity, entity_type in sample.entities:
                 entities.append({'entity': entity, 'entity_type': entity_type})
             d['experimental_factors'] = entities
-        self._add(d, 'collection_fbcv', self._export_fbcv(sample.fbcv))
-        self._add(d, 'assay_fbcv', self._export_fbcv(sample.assay.fbcv))
+        self._add(d, 'collection_cvterms', self._export_fbcv(sample.fbcv))
+        self._add(d, 'assay_cvterms', self._export_fbcv(sample.assay.fbcv))
         self._add(d, 'collection_protocol', sample.collection_protocol)
         return d
 
