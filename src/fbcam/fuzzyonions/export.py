@@ -5,12 +5,28 @@
 # the terms of the MIT license. See the LICENSE.md file in that project
 # for the detailed conditions.
 
+import logging
+import pronto
+
 
 class DictDatasetExporter(object):
     """A helper class to export a simplified view of a scRNAseq dataset."""
 
-    def __init__(self, db):
+    def __init__(self, db, fbbt_path, fbdv_path, fbbt_corrections):
         self._db = db
+        fbbt = pronto.Ontology(fbbt_path)
+        fbdv = pronto.Ontology(fbdv_path)
+        self._fbbt_terms = {}
+        self._fbdv_terms = {}
+        for t in fbdv.terms():
+            self._fbdv_terms[t.name] = t.id
+        for t in fbbt.terms():
+            self._fbbt_terms[t.name] = t.id
+            for syn in [s for s in t.synonyms if s.scope == 'EXACT']:
+                self._fbbt_terms[syn.description] = t.id
+        self._fbbt_corrections = {}
+        if fbbt_corrections is not None:
+            self._load_fbbt_corrections(fbbt_corrections)
 
     def _get_dataset_id(self, symbol):
         """Get the FBlc identifier for a given dataset symbol."""
@@ -24,7 +40,7 @@ class DictDatasetExporter(object):
         try:
             return self._db.cursor.fetchone()[0]
         except:
-            print(f"Unknown symbol: {symbol}")
+            logging.warn(f"Unknown symbol: {symbol}")
             return "unknown"
 
     def export(self, dataset):
@@ -32,7 +48,7 @@ class DictDatasetExporter(object):
         d = {}
         self._fill_id_slots(dataset, d)
         d['reference'] = dataset.reference.fbrf
-        d['study_type'] = [t for t in dataset.fbcv]
+        d['study_type'] = [self._export_fbcv(t) for t in dataset.fbcv]
         if dataset.lab:
             d['creator'] = {'name': dataset.lab.name, 'url': dataset.lab.url}
         d['accessions'] = [s.accession for s in dataset.sources]
@@ -54,7 +70,7 @@ class DictDatasetExporter(object):
 
     def _fill_id_slots(self, obj, dictionary):
         dictionary['symbol'] = obj.symbol
-        # dictionary['id'] = self._get_dataset_id(obj.symbol)
+        dictionary['id'] = self._get_dataset_id(obj.symbol)
         dictionary['title'] = obj.title
 
     def _add(self, dictionary, name, value):
@@ -98,12 +114,12 @@ class DictDatasetExporter(object):
     def _export_sample(self, sample):
         d = {}
         self._fill_id_slots(sample, d)
-        d['sample_type'] = sample.data_type
-        d['assay_type'] = sample.assay.data_type
+        d['sample_type'] = self._export_fbcv(sample.data_type)
+        d['assay_type'] = self._export_fbcv(sample.assay.data_type)
         self._add(d, 'strain', sample.strain)
         self._add(d, 'genotype', sample.genotype)
-        d['tissue'] = sample.anatomical_part
-        d['stage'] = sample.developmental_stage
+        d['tissue'] = self._export_fbbt(sample.anatomical_part)
+        d['stage'] = self._export_fbdv(sample.developmental_stage)
         self._add(d, 'sex', sample.sex)
         self._add(d, 'technical_reference', sample.assay.technical_reference)
         self._add(d, 'biological_reference', sample.assay.biological_reference)
@@ -112,23 +128,52 @@ class DictDatasetExporter(object):
             for entity, entity_type in sample.entities:
                 entities.append({'entity': entity, 'entity_type': entity_type})
             d['experimental_factors'] = entities
-        self._add(d, 'collection_fbcv', sample.fbcv)
-        self._add(d, 'assay_fbcv', sample.assay.fbcv)
+        self._add(d, 'collection_fbcv', self._export_fbcv(sample.fbcv))
+        self._add(d, 'assay_fbcv', self._export_fbcv(sample.assay.fbcv))
         self._add(d, 'collection_protocol', sample.collection_protocol)
         return d
 
     def _export_analysis(self, result):
         d = {}
         self._fill_id_slots(result, d)
-        d['analysis_type'] = result.data_type
+        d['analysis_type'] = self._export_fbcv(result.data_type)
         self._add(d, 'analysis_protocol', result.analysis_protocol)
         d['cell_count'] = result.count
         clusters = []
         for cluster in result.clusters:
             c = {}
             self._fill_id_slots(cluster, c)
-            c['cell_type'] = cluster.cell_type
+            c['cell_type'] = self._export_fbbt(cluster.cell_type)
             c['cell_count'] = cluster.count
             clusters.append(c)
         d['clusters'] = clusters
         return d
+
+    def _export_fbcv(self, fbcv_value):
+        if fbcv_value is None:
+            return None
+        elif isinstance(fbcv_value, list):
+            return [i.split(';')[1].strip() for i in fbcv_value]
+        else:
+            return fbcv_value.split(';')[1].strip()
+
+    def _export_fbdv(self, term):
+        try:
+            return self._fbdv_terms[term]
+        except KeyError:
+            logging.warn(f"Unknown FBdv term: {term}")
+            return "FBdv:UNKNOWN"
+
+    def _export_fbbt(self, term):
+        term = self._fbbt_corrections.get(term, term)
+        try:
+            return self._fbbt_terms[term]
+        except KeyError:
+            logging.warn(f"Unknown FBbt term: {term}")
+            return "FBbt:UNKNOWN"
+
+    def _load_fbbt_corrections(self, correction_file):
+        with open(correction_file, 'r') as f:
+            for line in f:
+                old, new = line.strip().split('\t')
+                self._fbbt_corrections[old] = new

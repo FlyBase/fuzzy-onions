@@ -1940,8 +1940,26 @@ def genclusters(ctx, specfile, outdir):
     default='-',
     help="Write to the specified file instead of standard output.",
 )
+@click.option(
+    '--fbbt',
+    type=click.Path(exists=True),
+    default='fbbt.obo',
+    help="Path to the FBbt ontology.",
+)
+@click.option(
+    '--fbdv',
+    type=click.Path(exists=True),
+    default='fbdv.obo',
+    help="Path to the FBdv ontology.",
+)
+@click.option(
+    '--fbbt-corrections',
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a file containing updated FBbt terms.",
+)
 @click.pass_obj
-def export_json(ctx, specfiles, outfile):
+def export_json(ctx, specfiles, outfile, fbbt, fbdv, fbbt_corrections):
     """Export dataset metadata as a JSON file.
 
     This command creates a simplified view of datasets metadata in a
@@ -1949,10 +1967,11 @@ def export_json(ctx, specfiles, outfile):
     by the Alliance.
     """
 
-    exporter = DictDatasetExporter(ctx._db)
+    exporter = DictDatasetExporter(ctx._db, fbbt, fbdv, fbbt_corrections)
 
     datasets = []
     for specfile in specfiles:
+        logging.info(f"Exporting {specfile}")
         ds = ctx.dataset_from_specfile(specfile)
         datasets.append(exporter.export(ds))
 
