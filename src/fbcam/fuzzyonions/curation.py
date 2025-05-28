@@ -23,6 +23,7 @@ class SourceDataset(object):
 
     def __init__(self, spec):
         self._accession = spec['accession']
+        self._full_accession = spec.get('full_accession', None)
         self._ct_column = spec.get('cell_types_column', None)
         self._input_ct_column = spec.get('input_cell_types_column', None)
         self._simple_ct = spec.get('simplified_cell_types', None)
@@ -34,9 +35,17 @@ class SourceDataset(object):
 
     @property
     def accession(self):
-        """The SCEA accession number for this dataset."""
+        """The accession number for this dataset."""
 
         return self._accession
+
+    @property
+    def full_accession(self):
+        """The qualified accession number."""
+
+        if self._full_accession is None:
+            return "SCEA:" + self._accession
+        return self._full_accession
 
     @property
     def cell_type_column(self):

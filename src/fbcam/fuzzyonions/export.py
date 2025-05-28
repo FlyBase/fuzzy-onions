@@ -51,7 +51,7 @@ class DictDatasetExporter(object):
         d['study_type'] = [self._export_fbcv(t) for t in dataset.fbcv]
         if dataset.lab:
             d['creator'] = {'name': dataset.lab.name, 'url': dataset.lab.url}
-        d['accessions'] = [s.accession for s in dataset.sources]
+        d['accessions'] = [s.full_accession for s in dataset.sources]
         d['samples'] = self._get_samples(dataset)
         analysis = self._get_project_analysis(dataset)
         if analysis is not None:
