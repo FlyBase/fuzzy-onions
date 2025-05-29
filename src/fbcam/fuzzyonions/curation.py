@@ -1105,7 +1105,7 @@ class Result(DatasetBase):
         self._symbol = symbol
         self._title = title
         self._stage = stage
-        self._protocol = protocol
+        self._prot_analysis = protocol
         self._fbcv = ['EMBL-EBI SCEA standard analysis method ; FBcv:0009058']
 
         self._desc = ""
@@ -1153,8 +1153,8 @@ class Result(DatasetBase):
 
     @property
     def analysis_protocol(self):
-        if self._protocol is not None:
-            return self._protocol
+        if self._prot_analysis is not None:
+            return self._prot_analysis
         else:
             return self.assay.sample.analysis_protocol
 

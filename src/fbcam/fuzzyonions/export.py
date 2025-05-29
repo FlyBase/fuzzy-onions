@@ -62,11 +62,11 @@ class DictDatasetExporter(object):
         if dataset.collection_protocol:
             for sample in dataset.get_all_samples():
                 if not sample.collection_protocol:
-                    sample._protocol = dataset.collection_protocol
+                    sample._prot_collection = dataset.collection_protocol
         if dataset.analysis_protocol:
             for result in dataset.get_all_results():
                 if not result.analysis_protocol:
-                    result._protocol = dataset.analysis_protocol
+                    result._prot_analysis = dataset.analysis_protocol
 
     def _fill_id_slots(self, obj, dictionary):
         dictionary['symbol'] = obj.symbol
