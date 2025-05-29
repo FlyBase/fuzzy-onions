@@ -38,7 +38,7 @@ class DictDatasetExporter(object):
                              name LIKE '{symbol}';'''
         self._db.cursor.execute(query)
         try:
-            return self._db.cursor.fetchone()[0]
+            return "FlyBase:" + self._db.cursor.fetchone()[0]
         except:
             logging.warn(f"Unknown symbol: {symbol}")
             return "unknown"
@@ -47,7 +47,7 @@ class DictDatasetExporter(object):
         self._propagate_protocols(dataset)
         d = {}
         self._fill_id_slots(dataset, d)
-        d['reference'] = dataset.reference.fbrf
+        d['reference'] = "FlyBase:" + dataset.reference.fbrf
         d['study_cvterms'] = [self._export_fbcv(t) for t in dataset.fbcv]
         if dataset.lab:
             d['creator'] = {'name': dataset.lab.name, 'url': dataset.lab.url}
@@ -132,7 +132,9 @@ class DictDatasetExporter(object):
         if sample.entities:
             entities = []
             for entity, entity_type in sample.entities:
-                entities.append({'entity': entity, 'entity_type': entity_type})
+                entities.append(
+                    {'entity': "FlyBase:" + entity, 'entity_type': entity_type}
+                )
             d['experimental_factors'] = entities
         self._add(d, 'collection_cvterms', self._export_fbcv(sample.fbcv))
         self._add(d, 'assay_cvterms', self._export_fbcv(sample.assay.fbcv))
