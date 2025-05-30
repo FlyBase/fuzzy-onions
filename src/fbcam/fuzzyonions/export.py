@@ -38,16 +38,35 @@ class DictDatasetExporter(object):
                              name LIKE '{symbol}';'''
         self._db.cursor.execute(query)
         try:
-            return "FlyBase:" + self._db.cursor.fetchone()[0]
+            return "FB:" + self._db.cursor.fetchone()[0]
         except:
             logging.warn(f"Unknown symbol: {symbol}")
+            return "unknown"
+
+    def _get_pmid(self, fbrf):
+        """Get the PMID for a given FBrf."""
+
+        query = f'''SELECT dbxref.accession
+                    FROM
+                             pub
+                        JOIN pub_dbxref USING (pub_id)
+                        JOIN dbxref     USING (dbxref_id)
+                        JOIN db         USING (db_id)
+                    WHERE
+                             db.name LIKE 'pubmed'
+                         AND pub.uniquename LIKE '{fbrf}';'''
+        self._db.cursor.execute(query)
+        try:
+            return "PMID:" + self._db.cursor.fetchone()[0]
+        except:
+            logging.warn(f"Unknown FBrf: {fbrf}")
             return "unknown"
 
     def export(self, dataset):
         self._propagate_protocols(dataset)
         d = {}
         self._fill_id_slots(dataset, d)
-        d['reference'] = "FlyBase:" + dataset.reference.fbrf
+        d['reference'] = self._get_pmid(dataset.reference.fbrf)
         d['study_cvterms'] = [self._export_fbcv(t) for t in dataset.fbcv]
         if dataset.lab:
             d['creator'] = {'name': dataset.lab.name, 'url': dataset.lab.url}
@@ -132,9 +151,7 @@ class DictDatasetExporter(object):
         if sample.entities:
             entities = []
             for entity, entity_type in sample.entities:
-                entities.append(
-                    {'entity': "FlyBase:" + entity, 'entity_type': entity_type}
-                )
+                entities.append({'entity': "FB:" + entity, 'entity_type': entity_type})
             d['experimental_factors'] = entities
         self._add(d, 'collection_cvterms', self._export_fbcv(sample.fbcv))
         self._add(d, 'assay_cvterms', self._export_fbcv(sample.assay.fbcv))
