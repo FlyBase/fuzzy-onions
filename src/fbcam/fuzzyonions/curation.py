@@ -1983,5 +1983,6 @@ def export_json(ctx, specfiles, outfile, fbbt, fbdv, fbbt_corrections):
         logging.info(f"Exporting {specfile}")
         ds = ctx.dataset_from_specfile(specfile)
         datasets.append(exporter.export(ds))
+    collection = {'@type': 'DatasetGroup', 'datasets': datasets}
 
-    json.dump(datasets, outfile, indent=4)
+    json.dump(collection, outfile, indent=4)
