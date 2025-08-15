@@ -1,41 +1,50 @@
-[tool.poetry]
+[project]
 name = "fuzzy-onions"
 version = "0.1.0"
 description = "FlyBase scRNAseq scripts"
-license = "MIT"
-authors = ["Damien Goutte-Gattat <dpg44@cam.ac.uk>"]
 readme = "README.md"
-repository = "https://github.com/FlyBase/fuzzy-onions"
+license = "MIT"
+authors = [
+    {name = "Damien Goutte-Gattat", email = "dpg44@cam.ac.uk"}
+]
 classifiers = [
   "Development Status :: 1 - Planning",
   "Environment :: Console",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering :: Bio-Informatics"
 ]
-packages = [{include = "fbcam", from = "src"}]
-include = [{ path = "docs", format = "sdist" }]
+requires-python = ">=3.9"
+dependencies = [
+    "click-shell >=2.1",
+    "pandas",
+    "ipython",
+    "pyyaml",
+    "psycopg2",
+    "pronto",
+    "requests",
+    "pymupdf",
+    "llm",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-click-shell = ">=2.1"
-pandas = "*"
-ipython = "*"
-pyyaml = "*"
-psycopg2 = "*"
-pronto = "*"
-requests = "*"
-pymupdf = "*"
-llm = "*"
+[project.urls]
+Repository = "https://github.com/FlyBase/fuzzy-onions"
 
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "*"
-sphinx-rtd-theme = "*"
-
-[tool.poetry.scripts]
+[project.scripts]
 fzo = "fbcam.fuzzyonions.main:main"
+
+[dependency-groups]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.11,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fbcam.fuzzyonions"
+source-include = ["docs/*"]
 
 [tool.black]
 skip-string-normalization = true
@@ -43,6 +52,3 @@ skip-string-normalization = true
 [tool.isort]
 profile = "black"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
