@@ -40,7 +40,7 @@ class DictDatasetExporter(object):
         try:
             return "FB:" + self._db.cursor.fetchone()[0]
         except:
-            logging.warn(f"Unknown symbol: {symbol}")
+            logging.warning(f"Unknown symbol: {symbol}")
             return "unknown"
 
     def _get_pmid(self, fbrf):
@@ -59,7 +59,7 @@ class DictDatasetExporter(object):
         try:
             return "PMID:" + self._db.cursor.fetchone()[0]
         except:
-            logging.warn(f"Unknown FBrf: {fbrf}")
+            logging.warning(f"Unknown FBrf: {fbrf}")
             return "unknown"
 
     def export(self, dataset):
@@ -186,7 +186,7 @@ class DictDatasetExporter(object):
         try:
             return self._fbdv_terms[term]
         except KeyError:
-            logging.warn(f"Unknown FBdv term: {term}")
+            logging.warning(f"Unknown FBdv term: {term}")
             return "FBdv:UNKNOWN"
 
     def _export_fbbt(self, term):
@@ -194,7 +194,7 @@ class DictDatasetExporter(object):
         try:
             return self._fbbt_terms[term]
         except KeyError:
-            logging.warn(f"Unknown FBbt term: {term}")
+            logging.warning(f"Unknown FBbt term: {term}")
             return "FBbt:UNKNOWN"
 
     def _load_fbbt_corrections(self, correction_file):

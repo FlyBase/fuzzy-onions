@@ -1065,9 +1065,9 @@ class Assay(DatasetBase):
         if len(samples) == 1:
             return samples[0].assay.symbol
         elif len(samples) == 0:
-            logging.warn(f"Referenced assay not found: {reference}")
+            logging.warning(f"Referenced assay not found: {reference}")
         elif len(samples) > 1:
-            logging.warn(f"Assay reference ambiguous: {reference}")
+            logging.warning(f"Assay reference ambiguous: {reference}")
         return reference
 
 
@@ -1832,7 +1832,7 @@ def sumexpr(ctx, specfile, output, header, min_spread, proforma):
                 clusters[symbol] = 1
         proforma.close()
         for cluster in [c for c in result['sample'].unique() if c not in clusters]:
-            logging.warn(f"Unknown cluster: {cluster}")
+            logging.warning(f"Unknown cluster: {cluster}")
 
     if not header:
         # Write a commented header line (needed for harvdev processing)
