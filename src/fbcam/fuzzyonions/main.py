@@ -22,6 +22,7 @@ from fbcam.fuzzyonions.dsfinder import discover
 from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.store import Store, store
 from fbcam.fuzzyonions.tracker import DatasetTracker, tracker
+from fbcam.fuzzyonions.ontologies import OntologyStore
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -55,6 +56,7 @@ class FzoContext(object):
         self._store = None
         self._tracker = None
         self._database = None
+        self._ontology_store = None
 
         self._config.clear()
 
@@ -83,6 +85,12 @@ class FzoContext(object):
         if self._database is None:
             self._database = DatabaseHelper(self._config)
         return self._database
+
+    @property
+    def ontologies(self):
+        if self._ontology_store is None:
+            self._ontology_store = OntologyStore(self._config)
+        return self._ontology_store
 
     def cleanup(self):
         if self._database is not None:

@@ -6,16 +6,15 @@
 # for the detailed conditions.
 
 import logging
-import pronto
 
 
 class DictDatasetExporter(object):
     """A helper class to export a simplified view of a scRNAseq dataset."""
 
-    def __init__(self, db, fbbt_path, fbdv_path, fbbt_corrections):
+    def __init__(self, db, ontologies, fbbt_corrections):
         self._db = db
-        fbbt = pronto.Ontology(fbbt_path)
-        fbdv = pronto.Ontology(fbdv_path)
+        fbbt = ontologies.fbbt.backend
+        fbdv = ontologies.fbdv.backend
         self._fbbt_terms = {}
         self._fbdv_terms = {}
         for t in fbdv.terms():

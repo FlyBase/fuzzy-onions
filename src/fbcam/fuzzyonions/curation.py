@@ -1583,13 +1583,14 @@ class CurationContext(object):
     """A helper object for all curation operations."""
 
     def __init__(
-        self, config, store, database, no_exclude, min_cluster_size, with_reads
+        self, config, store, database, ontologies, no_exclude, min_cluster_size, with_reads
     ):
         """Create a new instance.
 
         :param config: the main configuration object
         :param store: the dataset local file store
         :param database: the CHADO connection
+        :param ontologies: the ontology store
         :param no_exclude: do not exclude any cell type if True
         :param min_cluster_size: exclude any cluster containing less
             than the specified number of cells
@@ -1599,6 +1600,7 @@ class CurationContext(object):
 
         self._store = store
         self._db = database
+        self._ontologies = ontologies
         self._no_exclude = no_exclude
         self._min_cluster = min_cluster_size
         self._with_reads = with_reads
@@ -1728,6 +1730,7 @@ def curate(ctx, no_exclude, min_cluster_size, with_reads):
         ctx.obj.config,
         ctx.obj.raw_store,
         ctx.obj.database,
+        ctx.obj.ontologies,
         no_exclude,
         min_cluster_size,
         with_reads,
@@ -1950,25 +1953,13 @@ def genclusters(ctx, specfile, outdir):
     help="Write to the specified file instead of standard output.",
 )
 @click.option(
-    '--fbbt',
-    type=click.Path(exists=True),
-    default='fbbt.obo',
-    help="Path to the FBbt ontology.",
-)
-@click.option(
-    '--fbdv',
-    type=click.Path(exists=True),
-    default='fbdv.obo',
-    help="Path to the FBdv ontology.",
-)
-@click.option(
     '--fbbt-corrections',
     type=click.Path(exists=True),
     default=None,
     help="Path to a file containing updated FBbt terms.",
 )
 @click.pass_obj
-def export_json(ctx, specfiles, outfile, fbbt, fbdv, fbbt_corrections):
+def export_json(ctx, specfiles, outfile, fbbt_corrections):
     """Export dataset metadata as a JSON file.
 
     This command creates a simplified view of datasets metadata in a
@@ -1976,7 +1967,7 @@ def export_json(ctx, specfiles, outfile, fbbt, fbdv, fbbt_corrections):
     by the Alliance.
     """
 
-    exporter = DictDatasetExporter(ctx._db, fbbt, fbdv, fbbt_corrections)
+    exporter = DictDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
 
     datasets = []
     for specfile in specfiles:

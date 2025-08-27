@@ -12,17 +12,15 @@ import click
 from click_shell.core import make_click_shell
 from pandas import DataFrame, read_csv
 
-from .utils import CachedOntology
-
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
 
 class AnnotationContext(object):
     """A helper object for all commands manipulating annotations."""
 
-    def __init__(self, store, fbbt_path):
+    def __init__(self, store, ontologies):
         self.store = store
-        self.fbbt = CachedOntology(fbbt_path)
+        self.fbbt = ontologies.fbbt
 
     def get_cell_types_for_dataset(self, dataset, invalid_only=False):
         if CELL_TYPES_COLUMN not in dataset.experiment_design:
@@ -40,21 +38,11 @@ class AnnotationContext(object):
 
 
 @click.group(name="annots", invoke_without_command=True)
-@click.option(
-    '--fbbt',
-    '-f',
-    'fbbt_path',
-    type=click.Path(exists=True),
-    help="""Use the specified FBbt file. Default is to download the ontology
-            from the PURL server.""",
-)
 @click.pass_context
-def annots(ctx, fbbt_path):
+def annots(ctx):
     """Manipulate cell type annotations."""
 
-    if fbbt_path is None:
-        fbbt_path = 'http://purl.obolibrary.org/obo/fbbt.obo'
-    ctx.obj = AnnotationContext(ctx.obj.raw_store, fbbt_path)
+    ctx.obj = AnnotationContext(ctx.obj.raw_store, ctx.obj.ontologies)
 
     if not ctx.invoked_subcommand:
         shell = make_click_shell(ctx, prompt="fzo-annots>")
