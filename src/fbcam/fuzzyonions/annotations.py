@@ -11,7 +11,8 @@ from shutil import copyfile
 import click
 from click_shell.core import make_click_shell
 from pandas import DataFrame, read_csv
-from pronto import Ontology
+
+from .utils import CachedOntology
 
 CELL_TYPES_COLUMN = 'Factor Value[inferred cell type - ontology labels]'
 
@@ -21,23 +22,7 @@ class AnnotationContext(object):
 
     def __init__(self, store, fbbt_path):
         self.store = store
-        self._fbbt_path = fbbt_path
-        self._fbbt = None
-        self._fbbt_reverse_dict = None
-
-    @property
-    def fbbt(self):
-        if self._fbbt is None:
-            self._fbbt = Ontology(self._fbbt_path)
-        return self._fbbt
-
-    @property
-    def fbbt_ids(self):
-        if self._fbbt_reverse_dict is None:
-            self._fbbt_reverse_dict = {}
-            for term in self.fbbt.terms():
-                self._fbbt_reverse_dict[term.name] = term.id
-        return self._fbbt_reverse_dict
+        self.fbbt = CachedOntology(fbbt_path)
 
     def get_cell_types_for_dataset(self, dataset, invalid_only=False):
         if CELL_TYPES_COLUMN not in dataset.experiment_design:
@@ -47,7 +32,7 @@ class AnnotationContext(object):
         for cell_type in sorted(
             dataset.experiment_design[CELL_TYPES_COLUMN].dropna().unique()
         ):
-            term_id = self.fbbt_ids.get(cell_type, None)
+            term_id = self.fbbt.ids.get(cell_type, None)
             if not invalid_only or term_id is None:
                 cell_types.append((cell_type, term_id))
 
