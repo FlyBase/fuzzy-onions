@@ -1579,11 +1579,126 @@ class ProformaWriter(object):
             self._write_field('LC12b', entity_type)
 
 
+class DatasetValidator(object):
+    """Helper class to perform some sanity checks on a dataset.
+
+    Currently, this checks that all references to CV terms are correct.
+    """
+
+    def __init__(self, dataset, ontologies, output):
+        """Creates a new instance.
+
+        :param dataset: the dataset descriptor to check
+        :param ontologies: the ontologies store
+        :param output: file-like object to write results to
+        """
+        self._ds = dataset
+        self._ont = ontologies
+        self._out = output
+        self._excluded_cell_types = set()
+        self._used_cell_types = set()
+        self._current_obj = None
+
+    def check(self):
+        self._check_project(self._ds)
+        for source in self._ds.sources:
+            self._check_source(source)
+
+        self._current_obj = self._ds.symbol
+        for excluded_cell_type in self._excluded_cell_types:
+            if excluded_cell_type not in self._used_cell_types:
+                self.write(f"Unused excluded cell type: {excluded_cell_type}")
+
+    def _check_project(self, project):
+        self._current_obj = project.symbol
+        self._check_fbcv(project)
+        for ct in project._excluded_ct:
+            self._excluded_cell_types.add(ct)
+        for subproject in project.subprojects:
+            self._check_project(subproject)
+        for sample in project.samples:
+            self._check_sample(sample)
+
+    def _check_sample(self, sample):
+        self._current_obj = sample.symbol
+        self._check_fbcv(sample)
+        self._check_ontology_term(sample.anatomical_part, self._ont.fbbt)
+        self._check_ontology_term(sample.developmental_stage, self._ont.fbdv)
+        self._check_fbcv(sample.assay)
+        for ct in sample._excluded_ct:
+            self._excluded_cell_types.add(ct)
+
+    def _check_source(self, source):
+        self._current_obj = source.accession
+        expd = source.data.experiment_design
+
+        # Checking correction sets
+        for corrset in source._corrections:
+            for old, new, _ in corrset.values:
+                if len(expd[expd[corrset.source] == old]) == 0:
+                    self.write(f"Unused correction: {old} -> {new}")
+                if len(new) > 0:
+                    self._check_ontology_term(new, self._ont.fbbt)
+        source.apply_corrections()
+
+        # Checking (corrected) cell types
+        if source.cell_type_column is None:
+            return
+        cell_types = expd[source.cell_type_column].dropna().unique()
+        for cell_type in cell_types:
+            self._used_cell_types.add(cell_type)
+            if (
+                cell_type not in self._ont.fbbt.ids
+                and cell_type not in self._excluded_cell_types
+            ):
+                canonical_label = self._ont.fbbt.synonyms.get(cell_type)
+                if canonical_label:
+                    self.write(
+                        f"Invalid cell type label: {cell_type} -> {canonical_label}"
+                    )
+                else:
+                    self.write(f"Unknown cell type: {cell_type}")
+
+        # Checking simplified cell types
+        if source._simple_ct is not None:
+            for cell_type in source._simple_ct.keys():
+                if cell_type not in cell_types:
+                    self.write(f"Unused simplified cell type: {cell_type}")
+
+    def _check_fbcv(self, obj):
+        if obj.fbcv is not None:
+            for cv_term in obj.fbcv:
+                label, tid = cv_term.split(' ; ')
+                term = self._ont.fbcv.backend.get(tid)
+                if term is None:
+                    self.write(f"Unknown term: {label}")
+                elif term.name != label:
+                    self.write(f"Invalid term label: {label} -> {term.name}")
+
+    def _check_ontology_term(self, label, ontology):
+        if label not in ontology.ids:
+            canonical_label = ontology.synonyms.get(label)
+            if canonical_label:
+                self.write(f"Invalid term label: {label} -> {canonical_label}")
+            else:
+                self.write(f"Unknown term: {label}")
+
+    def write(self, msg):
+        self._out.write(f"{self._current_obj}: {msg}\n")
+
+
 class CurationContext(object):
     """A helper object for all curation operations."""
 
     def __init__(
-        self, config, store, database, ontologies, no_exclude, min_cluster_size, with_reads
+        self,
+        config,
+        store,
+        database,
+        ontologies,
+        no_exclude,
+        min_cluster_size,
+        with_reads,
     ):
         """Create a new instance.
 
@@ -1628,7 +1743,7 @@ class CurationContext(object):
         dataset.feed_data(self._store)
         return dataset
 
-    def dataset_from_specfile(self, specfile, with_reads=True):
+    def dataset_from_specfile(self, specfile, with_reads=True, apply_corrections=True):
         """Build a FlyBase dataset object from a JSON specification.
 
         :param specfile: the name of a file containing a JSON or YAML
@@ -1649,7 +1764,8 @@ class CurationContext(object):
             if not sourcepath.is_absolute():
                 source = str(specpath.parent.joinpath(source))
             s = self.source_dataset_from_specfile(source)
-            s.apply_corrections()
+            if apply_corrections:
+                s.apply_corrections()
             dataset.sources.append(s)
 
         if self._with_reads and with_reads:
@@ -1977,3 +2093,22 @@ def export_json(ctx, specfiles, outfile, fbbt_corrections):
     collection = {'@type': 'DatasetGroup', 'datasets': datasets}
 
     json.dump(collection, outfile, indent=4)
+
+
+@curate.command()
+@click.argument('specfile', type=click.Path(exists=True))
+@click.option(
+    '--outfile',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
+@click.pass_obj
+def check_annots(ctx, specfile, outfile):
+    """Check all annotations used in the specified dataset."""
+
+    ds = ctx.dataset_from_specfile(specfile, with_reads=False, apply_corrections=False)
+
+    dv = DatasetValidator(ds, ctx._ontologies, outfile)
+    dv.check()
