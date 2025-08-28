@@ -162,6 +162,7 @@ class DictDatasetExporter(object):
         self._fill_id_slots(result, d)
         d['analysis_type'] = self._export_fbcv(result.data_type)
         self._add(d, 'analysis_protocol', result.analysis_protocol)
+        self._add(d, 'analysis_cvterms', self._export_fbcv(result.fbcv))
         d['cell_count'] = result.count
         clusters = []
         for cluster in result.clusters:

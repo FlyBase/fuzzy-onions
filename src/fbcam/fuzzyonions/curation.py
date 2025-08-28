@@ -607,6 +607,14 @@ class Project(ProjectContainer):
         return self._sources
 
     @property
+    def is_custom(self):
+        """Indicates whether this is special, non-SCEA dataset."""
+        for source in self.sources:
+            if source.accession.startswith('FBrf'):
+                return True
+        return False
+
+    @property
     def other_species(self):
         species = []
         for sample in self.get_all_samples():
@@ -1106,7 +1114,6 @@ class Result(DatasetBase):
         self._title = title
         self._stage = stage
         self._prot_analysis = protocol
-        self._fbcv = ['EMBL-EBI SCEA standard analysis method ; FBcv:0009058']
 
         self._desc = ""
         self._clusters = None
@@ -1118,6 +1125,12 @@ class Result(DatasetBase):
     @property
     def data_type(self):
         return 'cell clustering analysis ; FBcv:0009002'
+
+    @property
+    def fbcv(self):
+        if not self._project.top_project.is_custom:
+            return ['EMBL-EBI SCEA standard analysis method ; FBcv:0009058']
+        return None
 
     @property
     def assay(self):
@@ -1481,13 +1494,16 @@ class ProformaWriter(object):
             self._write_field('LC6f', dataset.count_label)
 
     def _write_metadata(self, project):
-        self._write_field(
-            'LC7a',
-            "The EMBL-EBI's Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.",
-        )
-        for source in project.sources:
-            self._write_field('LC99a', source.accession)
-            self._write_field('LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets')
+        if not project.is_custom:
+            self._write_field(
+                'LC7a',
+                "The EMBL-EBI's Single Cell Expression Atlas provides cell-level annotations, clustering data, raw and normalised read counts, and putative marker genes.",
+            )
+            for source in project.sources:
+                self._write_field('LC99a', source.accession)
+                self._write_field(
+                    'LC99b', 'EMBL-EBI Single Cell Expression Atlas Datasets'
+                )
         self._write_field('LC8c', f'[{project.lab.name}]({project.lab.url})')
 
     def _write_subproject(self, subproject):
