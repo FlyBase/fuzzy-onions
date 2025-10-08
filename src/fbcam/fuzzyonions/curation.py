@@ -15,7 +15,7 @@ import yaml
 from click_shell.core import make_click_shell
 
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder, ProformaType
-from fbcam.fuzzyonions.export import DictDatasetExporter
+from fbcam.fuzzyonions.export import BackupDatasetExporter, AllianceDatasetExporter
 
 
 class SourceDataset(object):
@@ -2090,25 +2090,27 @@ def genclusters(ctx, specfile, outdir):
     default=None,
     help="Path to a file containing updated FBbt terms.",
 )
+@click.option(
+    '--export-format',
+    type=click.Choice(["backup", "agr"]),
+    default="backup",
+    help="Export in the specified format (backup or agr).")
 @click.pass_obj
-def export_json(ctx, specfiles, outfile, fbbt_corrections):
+def export_json(ctx, specfiles, outfile, fbbt_corrections, export_format):
     """Export dataset metadata as a JSON file.
 
     This command creates a simplified view of datasets metadata in a
     JSON file. It is intended for long-term export and eventual reuse
     by the Alliance.
     """
-
-    exporter = DictDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
-
-    datasets = []
-    for specfile in specfiles:
-        logging.info(f"Exporting {specfile}")
-        ds = ctx.dataset_from_specfile(specfile)
-        datasets.append(exporter.export(ds))
-    collection = {'@type': 'DatasetGroup', 'datasets': datasets}
-
-    json.dump(collection, outfile, indent=4)
+    
+    if export_format == "agr":
+        exporter = AllianceDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
+    else:
+        exporter = BackupDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
+        
+    datasets = [ctx.dataset_from_specfile(f) for f in specfiles]
+    json.dump(exporter.export_as_json(datasets), outfile, indent=4)
 
 
 @curate.command()
