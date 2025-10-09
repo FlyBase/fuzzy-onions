@@ -24,6 +24,7 @@ dependencies = [
     "requests",
     "pymupdf",
     "llm",
+    "sssom"
 ]
 
 [project.urls]

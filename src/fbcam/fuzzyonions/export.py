@@ -7,6 +7,11 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
+
+from sssom.parsers import parse_sssom_table
+
+FBCV_SSSOM_SET = Path(__file__).parent.resolve() / "resources/fbcv.sssom.tsv"
 
 
 class BaseDatasetExporter(object):
@@ -230,6 +235,7 @@ class AllianceDatasetExporter(BaseDatasetExporter):
     def __init__(self, db, ontologies, fbbt_corrections):
         BaseDatasetExporter.__init__(self, db, ontologies, fbbt_corrections)
         self._today = datetime.now().isoformat(timespec='seconds')
+        self._fbcv_map = parse_sssom_table(FBCV_SSSOM_SET)
         
     def export_as_json(self, datasets):
         dataset_objects = []
@@ -270,8 +276,7 @@ class AllianceDatasetExporter(BaseDatasetExporter):
         if project.is_top_project:
             d["htp_expression_dataset_dto"]["secondary_identifiers"] = [s.full_accession for s in project.sources]
             d["references_curies"] = ["FB:" + project.reference.fbrf]
-            # FIXME: Translate from FBcv terms to "Data Set Category Tags"
-            d["category_tag_names"] = ["TODO"]
+            d["category_tag_names"] = self._fbcv_to_category_tags(project.fbcv)
             
         if project.has_subprojects:
             # FIXME: Check that it is OK to use sub_series for this
@@ -310,10 +315,16 @@ class AllianceDatasetExporter(BaseDatasetExporter):
         d["taxon"] = "NCBITaxon:7227"
         # FIXME: Shouldn't that slot be "genetic_sex_name" in the DTO class?
         d["genetic_sex"] = sample.sex or "pooled sexes"
-        # FIXME: Translate from Fbcv to OBI
-        d["htp_expression_sample_type_curie"] = "TODO"
-        # FIXME: Translate from FBcv to MMO
-        d["expression_assay_used"] = "TODO"
+        # FIXME: The LinkML schema defines an enum value with only a small subset
+        # of allowed OBI values, but that enum is not referenced from anywhere
+        # within the schema and the "htp_expression_sample_type" is defined with
+        # a range of "OBITerm", suggesting that _any_ OBI term can be used --
+        # unsure whether this is actually true or not.
+        d["htp_expression_sample_type_curie"] = self._fbcv_to_obi(sample.data_type)
+        # FIXME: MMO has only one term for all scRNAseq stuff; frustratingly, OBI
+        # does have more precise terms for some specific subtypes of scRNAseq, but
+        # we can't use OBI here...
+        d["expression_assay_used"] = "MMO:0000862"
         d["htp_expression_sample_location_dtos"] = [{
             "anatomical_structure_curie": self._export_fbbt(sample.anatomical_part)
             }]
@@ -329,6 +340,11 @@ class AllianceDatasetExporter(BaseDatasetExporter):
             d["genomic_information_dto"] = {
                 "biosample_text": sample.genotype
                 }
+            
+        # FIXME: No way of storing the FBcv terms representing how the sample
+        # was collected/analysed.
+        # FIXME: No way of storing the collection_protocol, though I guess this
+        # could be done with a new Note Type since this is free text stuff?
             
         
         result = None
@@ -358,6 +374,9 @@ class AllianceDatasetExporter(BaseDatasetExporter):
                 "free_text": result.analysis_protocol,
                  "note_type_name": "analysis_protocol"
                 }]
+        # FIXME: No way of storing the FBcv term(s) representing the analysis
+        # pipeline (so no way to distinguish between SCEA-analysed datasets and
+        # the others).
         clusters = []
         for cluster in result.clusters:
             # FIXME: Shouldn't there be a SingleCellExpressionClusterDTO class?
@@ -371,3 +390,24 @@ class AllianceDatasetExporter(BaseDatasetExporter):
             clusters.append(c)
         d["cell_clusters"] = clusters
         return d
+    
+    def _fbcv_to_category_tags(self, fbcv_terms):
+        tag_map = self._fbcv_map.df.loc[self._fbcv_map.df["object_category"] == "Data Set Category Tags"]
+        tags = []
+        for fbcv_term in fbcv_terms:
+            term_id = self._export_fbcv(fbcv_term)
+            tag = tag_map[tag_map["subject_id"] == term_id]["object_label"]
+            if len(tag) == 1:
+                tags.append(tag.values[0])
+            logging.warning(f"Missing (or ambiguous) FBcv-to-Tags mapping: {term_id}")
+        return tags
+    
+    def _fbcv_to_obi(self, fbcv_term):
+        obi_map = self._fbcv_map.df.loc[self._fbcv_map.df["object_source"] == "obo:obi.owl"]
+        term_id = self._export_fbcv(fbcv_term)
+        obi_term = obi_map[obi_map["subject_id"] == term_id]["object_id"]
+        if len(obi_term) == 1:
+            return obi_term.values[0]
+        else:
+            logging.warning(f"Missing FBcv-to-OBI mapping: {term_id}")
+            return None
