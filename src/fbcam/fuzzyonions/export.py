@@ -5,6 +5,7 @@
 # the terms of the MIT license. See the LICENSE.md file in that project
 # for the detailed conditions.
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +34,12 @@ class BaseDatasetExporter(object):
         if fbbt_corrections is not None:
             self._load_fbbt_corrections(fbbt_corrections)
         self._id_by_symbol = {}
+        self._pmid_by_fbrf = {}
+
+    def load_cached_data(self, f):
+        cache = json.load(f)
+        self._id_by_symbol = cache["fblcs"]
+        self._pmid_by_fbrf = cache["pmids"]
         
     def export_as_json(self, datasets):
         """Export all the given datasets into a JSON object."""
@@ -63,6 +70,10 @@ class BaseDatasetExporter(object):
     def _get_pmid(self, fbrf):
         """Get the PMID for a given FBrf."""
 
+        pmid = self._pmid_by_fbrf.get(fbrf)
+        if pmid is not None:
+            return pmid
+
         query = f'''SELECT dbxref.accession
                     FROM
                              pub
@@ -74,7 +85,9 @@ class BaseDatasetExporter(object):
                          AND pub.uniquename LIKE '{fbrf}';'''
         self._db.cursor.execute(query)
         try:
-            return "PMID:" + self._db.cursor.fetchone()[0]
+            pmid = "PMID:" + self._db.cursor.fetchone()[0]
+            self._pmid_by_fbrf[fbrf] = pmid
+            return pmid
         except:
             logging.warning(f"Unknown FBrf: {fbrf}")
             return "unknown"
@@ -129,6 +142,7 @@ class BackupDatasetExporter(BaseDatasetExporter):
         return {'@type': 'DatasetGroup', 'datasets': [self._export(d) for d in datasets]}
 
     def _export(self, dataset):
+        logging.info(f"Exporting {dataset.symbol}")
         self._propagate_protocols(dataset)
         d = self._get_new_dict(dataset)
         d['reference'] = self._get_pmid(dataset.reference.fbrf)
@@ -258,6 +272,7 @@ class AllianceDatasetExporter(BaseDatasetExporter):
         
     def _export_project(self, project, dataset_objects, sample_objects):
         if project.is_top_project:
+            logging.info(f"Exporting dataset {project.symbol}")
             self._propagate_protocols(project)
 
         d = self._get_new_dict()

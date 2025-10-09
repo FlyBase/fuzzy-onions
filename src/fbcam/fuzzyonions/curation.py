@@ -2095,8 +2095,13 @@ def genclusters(ctx, specfile, outdir):
     type=click.Choice(["backup", "agr"]),
     default="backup",
     help="Export in the specified format (backup or agr).")
+@click.option(
+    '--cached-data',
+    type=click.File('r'),
+    default=None,
+    help="Get IDs from local cache file rather than CHADO.")
 @click.pass_obj
-def export_json(ctx, specfiles, outfile, fbbt_corrections, export_format):
+def export_json(ctx, specfiles, outfile, fbbt_corrections, export_format, cached_data):
     """Export dataset metadata as a JSON file.
 
     This command creates a simplified view of datasets metadata in a
@@ -2109,6 +2114,9 @@ def export_json(ctx, specfiles, outfile, fbbt_corrections, export_format):
     else:
         exporter = BackupDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
         
+    if cached_data is not None:
+        exporter.load_cached_data(cached_data)
+
     datasets = [ctx.dataset_from_specfile(f) for f in specfiles]
     json.dump(exporter.export_as_json(datasets), outfile, indent=4)
 
