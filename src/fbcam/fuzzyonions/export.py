@@ -15,43 +15,26 @@ from sssom.parsers import parse_sssom_table
 FBCV_SSSOM_SET = Path(__file__).parent.resolve() / "resources/fbcv.sssom.tsv"
 
 
-class BaseDatasetExporter(object):
-    """Base helper class to export a dataset to another format."""
-    
-    def __init__(self, db, ontologies, fbbt_corrections):
+class CachedObjectProvider(object):
+    """Helper object to obtain items from Chado."""
+
+    def __init__(self, db):
         self._db = db
-        fbbt = ontologies.fbbt.backend
-        fbdv = ontologies.fbdv.backend
-        self._fbbt_terms = {}
-        self._fbdv_terms = {}
-        for t in fbdv.terms():
-            self._fbdv_terms[t.name] = t.id
-        for t in fbbt.terms():
-            self._fbbt_terms[t.name] = t.id
-            for syn in [s for s in t.synonyms if s.scope == 'EXACT']:
-                self._fbbt_terms[syn.description] = t.id
-        self._fbbt_corrections = {}
-        if fbbt_corrections is not None:
-            self._load_fbbt_corrections(fbbt_corrections)
-        self._id_by_symbol = {}
+        self._fblc_by_symbol = {}
         self._pmid_by_fbrf = {}
 
     def load_cached_data(self, f):
         cache = json.load(f)
-        self._id_by_symbol = cache["fblcs"]
+        self._fblc_by_symbol = cache["fblcs"]
         self._pmid_by_fbrf = cache["pmids"]
-        
-    def export_as_json(self, datasets):
-        """Export all the given datasets into a JSON object."""
-        pass
-        
-    def _get_dataset_id(self, symbol):
+
+    def get_dataset_id(self, symbol):
         """Get the FBlc identifier for a given dataset symbol."""
-        
-        did = self._id_by_symbol.get(symbol)
+
+        did = self._fblc_by_symbol.get(symbol)
         if did is not None:
             return did
-        
+
         query = f'''SELECT uniquename
                     FROM
                              library
@@ -60,14 +43,13 @@ class BaseDatasetExporter(object):
         self._db.cursor.execute(query)
         try:
             did = "FB:" + self._db.cursor.fetchone()[0]
-            self._id_by_symbol[symbol] = did
+            self._fblc_by_symbol[symbol] = did
             return did
-            return "FB:" + self._db.cursor.fetchone()[0]
         except:
             logging.warning(f"Unknown symbol: {symbol}")
             return "unknown"
-        
-    def _get_pmid(self, fbrf):
+
+    def get_pmid(self, fbrf):
         """Get the PMID for a given FBrf."""
 
         pmid = self._pmid_by_fbrf.get(fbrf)
@@ -91,7 +73,37 @@ class BaseDatasetExporter(object):
         except:
             logging.warning(f"Unknown FBrf: {fbrf}")
             return "unknown"
+
+
+class BaseDatasetExporter(object):
+    """Base helper class to export a dataset to another format."""
+
+    def __init__(self, cache, ontologies, fbbt_corrections):
+        self._cache = cache
+        fbbt = ontologies.fbbt.backend
+        fbdv = ontologies.fbdv.backend
+        self._fbbt_terms = {}
+        self._fbdv_terms = {}
+        for t in fbdv.terms():
+            self._fbdv_terms[t.name] = t.id
+        for t in fbbt.terms():
+            self._fbbt_terms[t.name] = t.id
+            for syn in [s for s in t.synonyms if s.scope == 'EXACT']:
+                self._fbbt_terms[syn.description] = t.id
+        self._fbbt_corrections = {}
+        if fbbt_corrections is not None:
+            self._load_fbbt_corrections(fbbt_corrections)
         
+    def export_as_json(self, datasets):
+        """Export all the given datasets into a JSON object."""
+        pass
+
+    def _get_dataset_id(self, symbol):
+        return self._cache.get_dataset_id(symbol)
+
+    def _get_pmid(self, fbrf):
+        return self._cache.get_pmid(fbrf)
+
     def _propagate_protocols(self, dataset):
         if dataset.collection_protocol:
             for sample in dataset.get_all_samples():

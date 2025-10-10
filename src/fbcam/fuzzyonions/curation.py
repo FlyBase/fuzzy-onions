@@ -15,7 +15,7 @@ import yaml
 from click_shell.core import make_click_shell
 
 from fbcam.fuzzyonions.proformae import ProformaGeneratorBuilder, ProformaType
-from fbcam.fuzzyonions.export import BackupDatasetExporter, AllianceDatasetExporter
+from fbcam.fuzzyonions.export import BackupDatasetExporter, AllianceDatasetExporter, CachedObjectProvider
 
 
 class SourceDataset(object):
@@ -694,7 +694,7 @@ class Project(ProjectContainer):
         for sample in all_samples:
             sample.assay.count = int(sample.assay.count)
 
-    def summarise_expression(self):
+    def summarise_expression(self, fblc_id_provider=None, gene_prefix=None):
         """Produce the Summarised Expression Table for the dataset.
 
         This method parses the EBI "Normalised Expression Matrix" to
@@ -702,6 +702,12 @@ class Project(ProjectContainer):
         average expression of that gene in that cluster, and the
         "extent of expression" (the proportion of cells of that
         cluster in which the gene is expressed).
+
+        :param fblc_id_provider: a :class:`CachedObjectProvider`
+            object to obtain FBlc IDs for the clusters; if not
+            provided, the table will not include FBlc IDs
+        :param gene_prefix: optional prefix to prepend to FBgn
+            IDs (for export to the Alliance)
 
         :return: a :class:`pandas.DataFrame` object
         """
@@ -737,6 +743,9 @@ class Project(ProjectContainer):
                     if not gene.startswith('FBgn'):
                         continue
 
+                    if gene_prefix is not None:
+                        gene = gene_prefix + ':' + gene
+
                     if cell not in clusters_by_cell_id:
                         continue
 
@@ -767,6 +776,11 @@ class Project(ProjectContainer):
                 d['spread'] = d['presence'] / cluster.count
                 d['celltype'] = cluster.cell_type
                 d['sample'] = cluster.symbol
+                if fblc_id_provider is not None:
+                    fblc_id = fblc_id_provider.get_dataset_id(cluster.symbol)
+                    if fblc_id is None:
+                        logging.warning(f"Missing FBlc ID for cluster {cluster.symbol}")
+                    d['fblc_id'] = fblc_id
 
                 d = d.drop(columns=['expression', 'presence'])
                 if table is not None:
@@ -1978,6 +1992,53 @@ def sumexpr(ctx, specfile, output, header, min_spread, proforma):
 
 
 @curate.command()
+@click.argument('specfiles', type=click.Path(exists=True), nargs=-1)
+@click.option(
+    '--output',
+    '-o',
+    type=click.File('w'),
+    default='-',
+    help="Write to the specified file instead of standard output.",
+)
+@click.option(
+    '--min-spread',
+    default=0.0,
+    help="Exclude rows with a spread lower than the indicated value.",
+)
+@click.option(
+    '--cached-data',
+    type=click.File('r'),
+    default=None,
+    help="Get IDs from local cache file rather than CHADO.")
+@click.pass_obj
+def sumexpr_agr(ctx, specfiles, output, min_spread, cached_data):
+
+    cache = CachedObjectProvider(ctx._db)
+    if cached_data is not None:
+        cache.load_cached_data(cached_data)
+
+    table = None
+    for spec in specfiles:
+        ds = ctx.dataset_from_specfile(spec, with_reads=False)
+        logging.info(f"Generating summarised expression data for {ds.symbol}")
+        result = ds.summarise_expression(fblc_id_provider=cache, gene_prefix='FB')
+        if result is None:
+            logging.warning(f"No expression data for {ds.symbol}")
+            continue
+        if min_spread != 0:
+            result = result[result['spread'] > min_spread]
+        result.reset_index(names=['gene_id'], inplace=True)
+        if table is not None:
+            table = pandas.concat([table, result])
+        else:
+            table = result
+
+    table.to_csv(output, sep='\t', float_format='%.6f', index=False,
+                  columns=['fblc_id', 'sample', 'gene_id', 'mean_expr', 'spread'],
+                  header=['cluster_id', 'cluster_symbol', 'gene_id', 'mean_expr', 'spread'])
+
+
+@curate.command()
 @click.argument('specfile', type=click.Path(exists=True))
 @click.option(
     '--output',
@@ -2108,14 +2169,15 @@ def export_json(ctx, specfiles, outfile, fbbt_corrections, export_format, cached
     JSON file. It is intended for long-term export and eventual reuse
     by the Alliance.
     """
-    
-    if export_format == "agr":
-        exporter = AllianceDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
-    else:
-        exporter = BackupDatasetExporter(ctx._db, ctx._ontologies, fbbt_corrections)
-        
+
+    cache = CachedObjectProvider(ctx._db)
     if cached_data is not None:
-        exporter.load_cached_data(cached_data)
+        cache.load_cached_data(cached_data)
+
+    if export_format == "agr":
+        exporter = AllianceDatasetExporter(cache, ctx._ontologies, fbbt_corrections)
+    else:
+        exporter = BackupDatasetExporter(cache, ctx._ontologies, fbbt_corrections)
 
     datasets = [ctx.dataset_from_specfile(f) for f in specfiles]
     json.dump(exporter.export_as_json(datasets), outfile, indent=4)
