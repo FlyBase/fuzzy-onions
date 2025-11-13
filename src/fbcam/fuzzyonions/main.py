@@ -23,6 +23,7 @@ from fbcam.fuzzyonions.explorer import explorer
 from fbcam.fuzzyonions.store import Store, store
 from fbcam.fuzzyonions.tracker import DatasetTracker, tracker
 from fbcam.fuzzyonions.ontologies import OntologyStore
+from fbcam.fuzzyonions.utils import util
 
 prog_name = "fuzzyonions"
 prog_notice = f"""\
@@ -167,6 +168,7 @@ main.add_command(explorer)
 main.add_command(tracker)
 main.add_command(discover)
 main.add_command(annots)
+main.add_command(util)
 
 if __name__ == '__main__':
     main()
