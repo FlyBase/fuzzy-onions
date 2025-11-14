@@ -6,6 +6,45 @@ facilitate the annotation and curation of single-cell RNA-seq (scRNAseq)
 datasets for exploitation by [FlyBase](https://flybase.org/).
 
 
+Setup
+-----
+Fuzzy-Onions is currently _not_ available on PyPI, and will likely never
+be due to its highly specific nature.
+
+Clone the repository locally, then run [uv sync](https://docs.astral.sh/uv/)
+from within the local copy:
+
+```sh
+$ git clone https://github.com/FlyBase/fuzzy-onions.git
+$ cd fuzzy-onions
+$ uv sync
+```
+
+The tool can then be invoked through UV as follows:
+
+```sh
+$ uv run fzo --help
+```
+
+or, if you are not within the `fuzzy-onions` directory:
+
+```sh
+$ uv --project /path/to/fuzzy-onions run fzo --help
+```
+
+I recommend setting up an alias like:
+
+```sh
+alias fzo="uv --project /path/to/fuzzy-onions run fzo"
+```
+
+so that you can simply call `fzo` from anywhere:
+
+```sh
+$ fzo --help
+```
+
+
 Configuration
 -------------
 Fuzzy-Onions expects a configuration file under the name
