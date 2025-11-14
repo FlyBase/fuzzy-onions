@@ -119,9 +119,6 @@ def main(ctx, config):
     context = FzoContext(config)
     ctx.obj = context
 
-    if not context.has_config:
-        ctx.invoke(conf)
-
     ctx.call_on_close(context.cleanup)
 
 
