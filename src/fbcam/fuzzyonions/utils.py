@@ -81,7 +81,7 @@ class DatasetConverter():
     """A helper class to convert a dumped dataset into an Alliance dataset."""
     
     def __init__(self):
-        self._today = datetime.now().isoformat(timespec='seconds')
+        self._today = datetime.now().isoformat(timespec='seconds') + '+00:00'
         self._fbcv_map = parse_sssom_table(FBCV_SSSOM_SET)
         self._cluster_ids = {}
     
@@ -91,38 +91,58 @@ class DatasetConverter():
         for dataset in datasets:
             self._convert_project(dataset, dataset_objects, sample_objects)
         return {
+            "linkml_version": "2.4.0",
             "high_throughput_expression_dataset_annotation_ingest_set": dataset_objects,
             "high_throughput_expression_dataset_sample_annotation_ingest_set": sample_objects
             }
         
-    def _get_new_dict(self):
-        return {
+    def _get_new_dict(self, dto_id=None):
+        d = {
             "date_created": self._today,
             "internal": False,
             "obsolete": False
         }
+        if dto_id is not None:
+            d["data_provider_dto"] = {
+                "source_organization_abbreviation": "FB",
+                "cross_reference_dto": {
+                    "referenced_curie": dto_id,
+                    "prefix": "FB",
+                    "page_area": "dataset",
+                    "display_name": dto_id,
+                    "internal": False
+                    },
+                "internal": False
+                }
+        return d
         
-    def _convert_project(self, dataset, dataset_objects, sample_objects):
+    def _convert_project(self, dataset, dataset_objects, sample_objects, tags=None):
         logging.info(f"Converting dataset {dataset['symbol']}")
         
-        d = self._get_new_dict()
+        if tags is None:
+            tags = self._fbcv_to_category_tags(dataset["study_cvterms"])
+
+        d = self._get_new_dict(dto_id=dataset["id"])
         d["primary_external_id"] = dataset["id"]
         # The dataset ID in "htp_expression_dataset_dto" is the same as the
         # primary_external_id (and is in fact the MOD ID), because apart from
         # from the top-level project, none of those objects correspond to an
         # external database entity.
-        d["htp_expression_dataset_dto"] = {"curie": dataset["id"]}
+        d["htp_expression_dataset_dto"] = {
+            "curie": dataset["id"],
+            "internal": False
+            }
         d["name"] = dataset["title"]
-        # WARNING: The "symbol" slot is currently only defined on the
-        # HTPExpressionDatasetAnnotation, _not_ on its *DTO counterpart, so
-        # the following is not compliant
         d["symbol"] = dataset["symbol"]
+        d["category_tag_names"] = tags
         
         if "reference" in dataset:
             # This is a top-level project
-            d["htp_expression_dataset_dto"]["secondary_identifiers"] = dataset["accessions"]
-            d["references_curies"] = [dataset["reference"]] # FIXME: Should it be converted to a FB:FBrf?
-            d["category_tag_names"] = self._fbcv_to_category_tags(dataset["study_cvterms"])
+            d["htp_expression_dataset_dto"] = {
+                "secondary_identifiers": dataset["accessions"],
+                "internal": False
+                }
+            d["reference_curies"] = [dataset["reference"]] # FIXME: Should it be converted to a FB:FBrf?
         
         dataset_objects.append(d)
         
@@ -131,7 +151,7 @@ class DatasetConverter():
             if "samples" in sample:
                 # This is a "sub-project", to be rendered as a distinct
                 # dataset object in the Alliance schema
-                self._convert_project(sample, dataset_objects, sample_objects)
+                self._convert_project(sample, dataset_objects, sample_objects, tags=tags)
                 subseries.append(sample["id"])
             else:
                 self._convert_sample(sample, dataset, dataset_objects, sample_objects)
@@ -139,23 +159,21 @@ class DatasetConverter():
             d["sub_series"] = subseries
             
         if "analysis" in dataset and len(dataset["analysis"]["clusters"]) > 0:
-            d["analysis"] = self._convert_analysis(dataset["analysis"])
+            d["analysis_dto"] = self._convert_analysis(dataset["analysis"])
             
     def _convert_sample(self, sample, parent, dataset_objects, sample_objects):
-        d = self._get_new_dict()
+        d = self._get_new_dict(dto_id=sample["id"])
         
         d["primary_external_id"] = sample["id"]
-        d["htp_expression_sample_dto"] = {"curie": sample["id"]}
+        d["htp_expression_sample_dto"] = {
+            "curie": sample["id"],
+            "internal": False
+            }
         d["htp_expression_sample_title"] = sample["title"]
-        # FIXME: The "symbol" slot is missing from the
-        # HTPExpressionDatasetSampleAnnotationDTO class, so the following is
-        # not compliant
         d["symbol"] = sample["symbol"]
         d["dataset_ids"] = [parent["id"]]
-        # FIXME: Shouldn't that slot be called "taxon_curie" in the DTO class?
-        d["taxon"] = "NCBITaxon:7227"
-        # FIXME: Shouldn't that slot by "genetic_sex_name" in the DTO class?
-        d["genetic_sex"] = sample.get("sex", "pooled sexes")
+        d["taxon_curie"] = "NCBITaxon:7227"
+        d["genetic_sex_name"] = sample.get("sex", "pooled sexes")
         # FIXME: The LinkML schema defines an enum value with only a small
         # subset of allowed OBI values, but that enum is not referenced from
         # anywhere within the schema and the "htp_expression_sample_type" is
@@ -165,63 +183,71 @@ class DatasetConverter():
         # FIXME: MMO has only one term for all scRNAseq stuff; frustratingly,
         # OBI does have more precise terms for some specific subtypes of
         # scRNAseq, but we can't use OBI here...
-        d["expression_assay_used"] = "MMO:0000862"
+        d["expression_assay_curie"] = "MMO:0000862"
         d["htp_expression_sample_location_dtos"] = [{
-            "anatomical_structure_curie": sample["tissue"]
+            "anatomical_structure_curie": sample["tissue"],
+            "internal": False
             }]
         d["htp_expression_sample_age_dto"] = {
             "stage_dto": {
-                "developmental_stage_start_curie": sample["stage"]
-                }
+                "developmental_stage_start_curie": sample["stage"],
+                "internal": False
+                },
+            "internal": False
             }
         if "genotype" in sample:
             # FIXME: Should ideally use AGM models instead of free text (much
             # more complex but would allow to represent the exact genetic
             # entities involved, when they are known).
             d["genomic_information_dto"] = {
-                "biosample_text": sample["genotype"]
+                "biosample_text": sample["genotype"],
+                "internal": False
                 }
+        if "biological_reference" in sample:
+            d["biological_reference_curie"] = sample["biological_reference"]
             
         # FIXME: No way of storing the FBcv terms representing how the sample
         # was collected/analysed.
-        # FIXME: No way of storing the collection protocol, though I guess
-        # this could be done with a new Note Type since this is free text?
-        # FIXME: No way of storing the biological reference, if any?
+
+        if "collection_protocol" in sample:
+            d["note_dtos"] = [{
+                "free_text": sample["collection_protocol"],
+                "note_type_name": "collection_protocol",
+                "internal": False
+                }]
         
         if "analysis" in sample and len(sample["analysis"]["clusters"]) > 0:
-            d["analysis"] = self._convert_analysis(sample["analysis"])
+            d["analysis_dto"] = self._convert_analysis(sample["analysis"])
         
         sample_objects.append(d)
         
     def _convert_analysis(self, analysis):
-        # FIXME: Shouldn't there be a AnalysisDTO class?
-        # With something like a "analysis_type_curie" slot?
-        d = self._get_new_dict()
+        d = self._get_new_dict(dto_id=analysis["id"])
         d["primary_external_id"] = analysis["id"]
-        d["analysis_type"] = analysis["analysis_type"]
+        d["analysis_type_curie"] = analysis["analysis_type"]
         d["cell_count"] = analysis["cell_count"]
         d["symbol"] = analysis["symbol"]
         if "analysis_protocol" in analysis:
             d["note_dtos"] = [{
                 "free_text": analysis["analysis_protocol"],
-                "note_type_name": "analysis_protocol"
+                "note_type_name": "analysis_protocol",
+                "internal": False
                 }]
         # FIXME: No way of storing the FBcv term(s) representing the analysis
         # pipeline (so no way of distinguishing between SCEA-analysed datasets
         # and other datasets).
         clusters = []
         for cluster in analysis["clusters"]:
-            # FIXME: Shouldn't there be a SingleExpressionClusterDTO class?
-            # With something like a "cell_type_curie" slot?
-            c = self._get_new_dict()
+            c = self._get_new_dict(dto_id=cluster["id"])
             c["primary_external_id"] = cluster["id"]
             c["symbol"] = cluster["symbol"]
             c["title"] = cluster["title"]
             c["cell_count"] = cluster["cell_count"]
-            c["cell_type"] = cluster["cell_type"]
+            c["cell_type_curie"] = cluster["cell_type"]
+
             clusters.append(c)
             self._cluster_ids[cluster["id"][3:]] = 1
-        d["cell_clusters"] = clusters
+        d["cell_clusters_dtos"] = clusters
         return d
         
         
