@@ -204,7 +204,10 @@ class DatasetConverter():
                 "internal": False
                 }
         if "biological_reference" in sample:
-            d["biological_reference_curie"] = sample["biological_reference"]
+            d["biological_reference_dto"] = {
+                "curie": sample["biological_reference"],
+                "internal": False
+                }
             
         # FIXME: No way of storing the FBcv terms representing how the sample
         # was collected/analysed.
